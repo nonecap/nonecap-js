@@ -32,6 +32,9 @@ jobs:
     needs: test
     if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm publish --provenance needs OIDC token access
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
