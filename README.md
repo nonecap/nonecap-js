@@ -92,6 +92,8 @@ await nc.solve({
   url,
   proxy: { scheme: "http", host: "1.2.3.4", port: 8080, username: "u", password: "p" },
   // or: proxy: "http://u:p@1.2.3.4:8080"
+  // scheme can be http, https, socks5, socks5h, or socks4 (default http)
+  // e.g. proxy: "socks5://u:p@1.2.3.4:1080"
 });
 ```
 
