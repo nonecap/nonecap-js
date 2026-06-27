@@ -15,11 +15,15 @@ export type SolveStatus =
   | "cancelled"
   | "expired";
 
-/** A proxy the solve should egress through. */
+/** Proxy scheme. Defaults to `http` when omitted. */
+export type ProxyScheme = "http" | "https" | "socks5" | "socks5h" | "socks4";
+
+/** A proxy the solve should egress through. `host` and `port` are required; the
+ *  API rejects a partial proxy object with a 422. `port` must be 1–65535. */
 export interface Proxy {
-  scheme?: string;
-  host?: string;
-  port?: string | number;
+  scheme?: ProxyScheme;
+  host: string;
+  port: string | number;
   username?: string;
   password?: string;
 }
