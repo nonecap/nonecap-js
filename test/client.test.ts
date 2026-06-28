@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   NoneCap,
+  SolveHandle,
   AuthenticationError,
   InsufficientCreditsError,
   ValidationError,
@@ -201,6 +202,172 @@ describe("solve() helper", () => {
     await expect(
       nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" }, { timeout: 0 }),
     ).rejects.toBeInstanceOf(TimeoutError);
+  });
+});
+
+describe("solves.start + SolveHandle", () => {
+  it("exposes id synchronously after start resolves", async () => {
+    const { nc, calls } = client([() => ({ status: 202, body: baseSolve({ id: "solve_x", status: "pending" }) })]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    expect(handle.id).toBe("solve_x");
+    expect(handle.solve.status).toBe("pending");
+    expect(calls).toHaveLength(1); // start does not long-poll
+    expect(calls[0]!.init.method).toBe("POST");
+  });
+
+  it("result() polls retrieve until terminal", async () => {
+    const { nc, calls } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => ({ status: 202, body: baseSolve({ status: "solving" }) }),
+      () => ({ status: 200, body: baseSolve({ status: "solved", token: "TOK" }) }),
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const solve = await handle.result();
+    expect(solve.token).toBe("TOK");
+    expect(calls).toHaveLength(3);
+    expect(calls[1]!.init.method).toBe("GET");
+  });
+
+  it("start() returns a real SolveHandle instance (value export)", async () => {
+    const { nc } = client([() => ({ status: 202, body: baseSolve({ status: "pending" }) })]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    expect(handle).toBeInstanceOf(SolveHandle);
+    expect(typeof SolveHandle).toBe("function"); // importable at runtime, not type-only
+  });
+
+  it("result() called again after a terminal outcome replays the cache (one poll)", async () => {
+    let gets = 0;
+    const { nc } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => {
+        gets++;
+        return { status: 200, body: baseSolve({ status: "solved", token: "TOK" }) };
+      },
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const a = await handle.result();
+    const b = await handle.result();
+    expect(a).toBe(b); // identical, memoized terminal outcome
+    expect(gets).toBe(1); // polled exactly once, second call replayed the cache
+  });
+
+  it("two concurrent result() calls share one in-flight poll", async () => {
+    let gets = 0;
+    const { nc } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => {
+        gets++;
+        return { status: 200, body: baseSolve({ status: "solved", token: "TOK" }) };
+      },
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const p1 = handle.result();
+    const p2 = handle.result();
+    const [a, b] = await Promise.all([p1, p2]);
+    expect(a).toBe(b);
+    expect(gets).toBe(1); // one shared poll, no duplicate GETs
+  });
+
+  it("result() throws TimeoutError carrying the solve id and state", async () => {
+    const { nc } = client([() => ({ status: 202, body: baseSolve({ id: "solve_t", status: "solving" }) })]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const err = await handle.result({ timeout: 0 }).catch((e) => e);
+    expect(err).toBeInstanceOf(TimeoutError);
+    expect((err as TimeoutError).solveId).toBe("solve_t");
+    expect((err as TimeoutError).solve?.status).toBe("solving");
+  });
+
+  it("a timed-out result() does not poison the handle — a later call resumes polling", async () => {
+    let gets = 0;
+    const { nc } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => {
+        gets++;
+        return { status: 200, body: baseSolve({ status: "solved", token: "TOK" }) };
+      },
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    // First wait gives up immediately, before issuing any retrieve.
+    await expect(handle.result({ timeout: 0 })).rejects.toBeInstanceOf(TimeoutError);
+    expect(gets).toBe(0);
+    // A fresh wait must resume polling rather than replaying the timeout.
+    const solve = await handle.result({ timeout: 5000 });
+    expect(solve.token).toBe("TOK");
+    expect(gets).toBe(1);
+  });
+
+  it("cancel() DELETEs and returns the cancelled solve", async () => {
+    const { nc, calls } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => ({ status: 200, body: baseSolve({ status: "cancelled" }) }),
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const solve = await handle.cancel();
+    expect(solve.status).toBe("cancelled");
+    expect(handle.solve.status).toBe("cancelled");
+    expect(calls[1]!.init.method).toBe("DELETE");
+  });
+
+  it("cancel() swallows a 409 on an already-terminal solve and returns its state", async () => {
+    const { nc, calls } = client([
+      () => ({ status: 202, body: baseSolve({ status: "solving" }) }),
+      () => ({ status: 409, body: { error: { code: "conflict", message: "already done", param: null } } }),
+      () => ({ status: 200, body: baseSolve({ status: "solved", token: "TOK" }) }),
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    const solve = await handle.cancel();
+    expect(solve.status).toBe("solved");
+    expect(solve.token).toBe("TOK");
+    expect(calls[1]!.init.method).toBe("DELETE"); // tried to cancel
+    expect(calls[2]!.init.method).toBe("GET"); // then read current state
+  });
+
+  it("cancel() settles a later result() to the cancelled terminal state without polling", async () => {
+    const { nc, calls } = client([
+      () => ({ status: 202, body: baseSolve({ status: "pending" }) }),
+      () => ({ status: 200, body: baseSolve({ status: "cancelled" }) }),
+    ]);
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+    await handle.cancel();
+    const err = await handle.result().catch((e) => e);
+    expect(err).toBeInstanceOf(SolveFailedError);
+    expect((err as SolveFailedError).solve.status).toBe("cancelled");
+    // Only the POST and the DELETE — result() never issued a GET.
+    expect(calls).toHaveLength(2);
+    expect(calls.some((c) => c.init.method === "GET")).toBe(false);
+  });
+
+  it("a result() in flight when cancel() lands settles to cancelled, not more polling", async () => {
+    let resolveGet!: (r: Response) => void;
+    const getPromise = new Promise<Response>((r) => {
+      resolveGet = r;
+    });
+    let gets = 0;
+    const json = (status: number, body: unknown) =>
+      new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+    const fetch: FetchLike = async (_input, init = {}) => {
+      const method = init.method ?? "GET";
+      if (method === "POST") return json(202, baseSolve({ status: "pending" }));
+      if (method === "DELETE") return json(200, baseSolve({ status: "cancelled" }));
+      gets++;
+      return getPromise; // retrieve hangs until we resolve it
+    };
+    const nc = new NoneCap({ apiKey: "k", fetch });
+    const handle = await nc.solves.start({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });
+
+    const resultP = handle.result();
+    await Promise.resolve(); // let the poll issue its (hanging) retrieve
+    expect(gets).toBe(1);
+
+    await handle.cancel(); // lands while the poll is awaiting the retrieve
+    // The hung retrieve now comes back non-terminal; the poll must still settle
+    // to the cancelled state rather than continuing to poll.
+    resolveGet(json(202, baseSolve({ status: "solving" })));
+
+    const err = await resultP.catch((e) => e);
+    expect(err).toBeInstanceOf(SolveFailedError);
+    expect((err as SolveFailedError).solve.status).toBe("cancelled");
+    expect(gets).toBe(1); // no further retrieves after cancel settled it
   });
 });
 

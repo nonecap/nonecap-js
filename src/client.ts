@@ -1,5 +1,6 @@
 import {
   APIError,
+  ConflictError,
   ConnectionError,
   NoneCapError,
   SolveFailedError,
@@ -65,7 +66,7 @@ export interface WaitOptions {
   signal?: AbortSignal;
 }
 
-/** Options for {@link NoneCap.solve}. */
+/** Options for {@link NoneCap.solve} and {@link SolveHandle.result}. */
 export interface SolveHelperOptions {
   /**
    * Give up after this many milliseconds and throw {@link TimeoutError}.
@@ -73,6 +74,12 @@ export interface SolveHelperOptions {
    */
   timeout?: number;
   /** Abort waiting. */
+  signal?: AbortSignal;
+}
+
+/** Options for {@link NoneCap.solves.start}. */
+export interface SolveStartOptions {
+  /** Abort the submission. */
   signal?: AbortSignal;
 }
 
@@ -145,6 +152,29 @@ export class NoneCap {
         signal: options.signal,
       }),
 
+    /**
+     * Submit a solve and return a {@link SolveHandle} for it.
+     *
+     * Unlike {@link NoneCap.solve}, this returns as soon as the submission is
+     * accepted, so `handle.id` is available immediately. Use the handle to
+     * `cancel()` the solve or `await handle.result()` for the finished solve.
+     *
+     * ```ts
+     * const handle = await nc.solves.start({ type: "hcaptcha", sitekey, url });
+     * // ...later, e.g. on shutdown:
+     * await handle.cancel();
+     * // or wait for it:
+     * const { token } = await handle.result();
+     * ```
+     */
+    start: async (
+      params: SolveCreateParams,
+      options: SolveStartOptions = {},
+    ): Promise<SolveHandle> => {
+      const solve = await this.solves.create(params, { signal: options.signal });
+      return new SolveHandle(this, solve);
+    },
+
     /** Fetch one page of solves. */
     list: (params: SolveListParams = {}, options: { signal?: AbortSignal } = {}): Promise<SolveList> =>
       this.#request<SolveList>("GET", "/v1/solves", {
@@ -181,31 +211,14 @@ export class NoneCap {
    * Uses the server's long-poll under the hood and keeps polling until the
    * solve is terminal or `timeout` elapses. Throws {@link SolveFailedError} if
    * the solve fails/expires/is cancelled, or {@link TimeoutError} on timeout.
+   *
+   * This is sugar for `(await solves.start(params)).result(options)`. When you
+   * need to cancel the solve while it runs, use {@link NoneCap.solves.start}
+   * and keep the {@link SolveHandle}.
    */
   async solve(params: SolveCreateParams, options: SolveHelperOptions = {}): Promise<Solve> {
-    const timeout = options.timeout ?? 180_000;
-    const deadline = Date.now() + timeout;
-
-    let solve = await this.solves.create(params, {
-      wait: waitSeconds(deadline),
-      signal: options.signal,
-    });
-
-    while (!isTerminal(solve.status)) {
-      if (Date.now() >= deadline) {
-        throw new TimeoutError(
-          `Solve ${solve.id} did not finish within ${timeout}ms (last status: ${solve.status}).`,
-          { code: undefined },
-        );
-      }
-      solve = await this.solves.retrieve(solve.id, {
-        wait: waitSeconds(deadline),
-        signal: options.signal,
-      });
-    }
-
-    if (solve.status !== "solved") throw new SolveFailedError(solve);
-    return solve;
+    const handle = await this.solves.start(params, { signal: options.signal });
+    return handle.result(options);
   }
 
   // -- internals ------------------------------------------------------------
@@ -310,6 +323,129 @@ export class NoneCap {
       apiError?.message ?? `HTTP ${res.status}`,
       apiError?.param ?? null,
     );
+  }
+}
+
+/**
+ * A handle on a started solve, returned by {@link NoneCap.solves.start}.
+ *
+ * The handle is the cancellable lifecycle object for one solve. It is a plain
+ * object, not a promise: `await`ing it does nothing useful. Wait for the result
+ * with {@link SolveHandle.result}, and cancel with {@link SolveHandle.cancel}.
+ * You do not construct it yourself — `solves.start()` hands you one with `id`
+ * already resolved.
+ */
+export class SolveHandle {
+  /** The id of the started solve, available as soon as `start()` resolved. */
+  readonly id: string;
+
+  readonly #client: NoneCap;
+  /** The latest solve state we have seen, from the create, polls, or cancel. */
+  #solve: Solve;
+  /**
+   * The cached TERMINAL outcome: resolves to the solved solve, or rejects with
+   * {@link SolveFailedError} if terminal-but-not-solved. Only ever set once the
+   * solve actually reaches a terminal state, so it is safe to replay forever. A
+   * timed-out wait does NOT settle this — it is retryable.
+   */
+  #terminal: Promise<Solve> | undefined;
+  /** The poll currently in flight, shared by concurrent result() callers. */
+  #inflight: Promise<Solve> | undefined;
+
+  constructor(client: NoneCap, solve: Solve) {
+    this.#client = client;
+    this.#solve = solve;
+    this.id = solve.id;
+  }
+
+  /** The last-known solve state for this handle. */
+  get solve(): Solve {
+    return this.#solve;
+  }
+
+  /**
+   * Long-poll until the solve is terminal, returning the solved solve. Throws
+   * {@link SolveFailedError} if it fails/expires/is cancelled, or
+   * {@link TimeoutError} on timeout (with `solveId`/`solve` attached so you can
+   * still {@link SolveHandle.cancel} it).
+   *
+   * Memoizes the *terminal* outcome: once the solve actually finishes, every
+   * later call returns that same settled result. A {@link TimeoutError} is not
+   * memoized — it just means this wait gave up, so a later call (e.g. with a
+   * larger `timeout`) resumes polling. Concurrent calls share one in-flight
+   * poll, so they never issue duplicate requests. The first caller's
+   * `timeout`/`signal` drive the shared poll; a later call starts a fresh one.
+   */
+  result(options: SolveHelperOptions = {}): Promise<Solve> {
+    if (this.#terminal) return this.#terminal;
+    if (this.#inflight) return this.#inflight;
+    const run = this.#poll(options).finally(() => {
+      // Free the slot so a retry can re-poll after a timeout; a terminal
+      // outcome is already memoized in #terminal and wins on the next call.
+      if (this.#inflight === run) this.#inflight = undefined;
+    });
+    this.#inflight = run;
+    return run;
+  }
+
+  /**
+   * Cancel the solve. Cancelled solves are never charged, so this is for clean
+   * shutdown / freeing slots / stopping early, not cost protection.
+   *
+   * If the solve already reached a terminal state the API answers 409; that is
+   * not an error a caller cares about, so this swallows {@link ConflictError}
+   * and returns the current solve state instead. A cancel that lands on a
+   * terminal state (cancelled, or whatever the 409-swallow read back) settles
+   * this handle's {@link SolveHandle.result}, so any in-flight or later wait
+   * stops polling and reflects that terminal state.
+   */
+  async cancel(options: { signal?: AbortSignal } = {}): Promise<Solve> {
+    try {
+      this.#solve = await this.#client.solves.cancel(this.id, options);
+    } catch (err) {
+      if (!(err instanceof ConflictError)) throw err;
+      // Already terminal — report the real state rather than the 409.
+      this.#solve = await this.#client.solves.retrieve(this.id, options);
+    }
+    if (!this.#terminal && isTerminal(this.#solve.status)) this.#cacheTerminal();
+    return this.#solve;
+  }
+
+  /**
+   * Build and memoize the terminal outcome from the current `#solve`. The
+   * precondition is that `#solve` is terminal and `#terminal` is unset.
+   */
+  #cacheTerminal(): Promise<Solve> {
+    const settled =
+      this.#solve.status === "solved"
+        ? Promise.resolve(this.#solve)
+        : Promise.reject(new SolveFailedError(this.#solve));
+    // Never let the memoized rejection surface as an unhandled rejection; real
+    // callers read it explicitly through result().
+    settled.catch(() => {});
+    this.#terminal = settled;
+    return settled;
+  }
+
+  async #poll(options: SolveHelperOptions): Promise<Solve> {
+    const timeout = options.timeout ?? 180_000;
+    const deadline = Date.now() + timeout;
+
+    for (;;) {
+      // cancel() (or a previous poll) may have already settled this handle.
+      if (this.#terminal) return this.#terminal;
+      if (isTerminal(this.#solve.status)) return this.#cacheTerminal();
+      if (Date.now() >= deadline) {
+        throw new TimeoutError(
+          `Solve ${this.id} did not finish within ${timeout}ms (last status: ${this.#solve.status}).`,
+          { solveId: this.id, solve: this.#solve },
+        );
+      }
+      this.#solve = await this.#client.solves.retrieve(this.id, {
+        wait: waitSeconds(deadline),
+        signal: options.signal,
+      });
+    }
   }
 }
 

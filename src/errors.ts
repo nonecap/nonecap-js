@@ -71,8 +71,33 @@ export class SolveFailedError extends NoneCapError {
   }
 }
 
-/** Thrown by {@link NoneCap.solve} when the client-side timeout elapses first. */
-export class TimeoutError extends NoneCapError {}
+/**
+ * Thrown by {@link NoneCap.solve} (and {@link SolveHandle.result}) when the
+ * client-side timeout elapses first. When the timeout came from waiting on a
+ * solve, `solveId` and the last-known `solve` are attached so you can still
+ * cancel the in-flight solve. They are `undefined` for transport-level timeouts.
+ */
+export class TimeoutError extends NoneCapError {
+  /** The id of the in-flight solve, when the timeout came from a solve wait. */
+  readonly solveId: string | undefined;
+  /** The last-known solve state, so you can cancel it after a wait timed out. */
+  readonly solve: Solve | undefined;
+
+  constructor(
+    message: string,
+    opts: {
+      code?: ErrorCode;
+      status?: number;
+      param?: string | null;
+      solveId?: string;
+      solve?: Solve;
+    } = {},
+  ) {
+    super(message, opts);
+    this.solveId = opts.solveId;
+    this.solve = opts.solve;
+  }
+}
 
 /** Map an API error envelope (plus HTTP status) to the right error subclass. */
 export function errorFromResponse(

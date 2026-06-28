@@ -4,11 +4,12 @@
  * @packageDocumentation
  */
 
-export { NoneCap, isTerminal } from "./client.js";
+export { NoneCap, SolveHandle, isTerminal } from "./client.js";
 export type {
   NoneCapOptions,
   WaitOptions,
   SolveHelperOptions,
+  SolveStartOptions,
   FetchLike,
 } from "./client.js";
 

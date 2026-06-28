@@ -68,6 +68,55 @@ try {
 
 The error subclasses are `AuthenticationError` (401), `PermissionError` (403), `InsufficientCreditsError` (402), `ValidationError` (422/400, with a `param` naming the bad field), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429), `APIError` (5xx), and `ConnectionError` (the request never landed). `SolveFailedError` carries the full `solve` so you can read `solve.error` and the timing fields.
 
+## Cancelling a solve
+
+`solve()` is the simple path when you just want a token. When you need to cancel while the solve is in flight — clean shutdown, freeing a worker slot, or stopping early — start it instead. `solves.start()` returns as soon as the submission is accepted, handing you a `SolveHandle` whose `id` is available right away.
+
+Wait for the result when you want the token:
+
+```ts
+const handle = await nc.solves.start({ type: "hcaptcha", sitekey, url });
+console.log(handle.id); // available immediately
+
+const solve = await handle.result({ timeout: 120_000 });
+console.log(solve.token);
+```
+
+Or hold onto the handle and cancel it from somewhere else — a shutdown hook, a request that was abandoned, a "stop" button:
+
+```ts
+const handle = await nc.solves.start({ type: "hcaptcha", sitekey, url });
+
+process.on("SIGTERM", () => {
+  handle.cancel().catch(() => {}); // free the worker slot on shutdown
+});
+
+// elsewhere, whoever needs the token still awaits it:
+const solve = await handle.result();
+```
+
+`handle.result()` long-polls until the solve finishes, throwing `SolveFailedError` or `TimeoutError` exactly like `solve()`. The **terminal** outcome is memoized: once the solve actually finishes, every later `result()` call returns that same result. A `TimeoutError` is not memoized — it just means that wait gave up, so you can call `result()` again (for example with a larger `timeout`) to resume polling. Concurrent `result()` calls share a single in-flight poll.
+
+`handle.cancel()` cancels a pending or in-flight solve. If the solve already finished, the API would answer 409; the handle swallows that and returns the solve's current state instead, since cancelling a finished solve is not something you need to handle. Cancelling settles the handle, so a concurrent or later `result()` stops polling and reflects the cancelled (terminal) state.
+
+Cancelled and abandoned solves are **never charged** — nothing is billed unless a solve actually succeeds, and unfinished solves simply expire uncharged at the server deadline. So cancel is for cleanup and early-stop, not cost protection.
+
+If you used the bare `solve()` path and it throws `TimeoutError`, the error usually carries the in-flight `solveId` (and last-known `solve`) so you can still cancel it. Guard on `solveId` being present: if the very first submission times out at the transport level, no id has been assigned yet, so `solveId` is `undefined`.
+
+```ts
+import { TimeoutError } from "nonecap";
+
+try {
+  await nc.solve({ type: "hcaptcha", sitekey, url });
+} catch (err) {
+  if (err instanceof TimeoutError && err.solveId) {
+    await nc.solves.cancel(err.solveId);
+  } else {
+    throw err;
+  }
+}
+```
+
 ## Enterprise captchas
 
 For `hcaptcha_enterprise`, `rqdata` is required. The types enforce it, so leaving it out is a compile error, not a runtime surprise.
