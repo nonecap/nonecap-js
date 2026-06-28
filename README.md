@@ -101,7 +101,9 @@ const solve = await handle.result();
 
 Cancelled and abandoned solves are **never charged** — nothing is billed unless a solve actually succeeds, and unfinished solves simply expire uncharged at the server deadline. So cancel is for cleanup and early-stop, not cost protection.
 
-If you used the bare `solve()` path and it throws `TimeoutError`, the error usually carries the in-flight `solveId` (and last-known `solve`) so you can still cancel it. Guard on `solveId` being present: if the very first submission times out at the transport level, no id has been assigned yet, so `solveId` is `undefined`.
+### Cleaning up after a `solve()` timeout
+
+`solve()` blocks until the solve settles, so it hands you no handle to cancel a solve while it's still running — for that, use `solves.start()` above. The one thing the `solve()` path offers is cleanup *after* a timeout: when `solve()` throws `TimeoutError`, the error usually carries the in-flight `solveId` (and last-known `solve`), so you can cancel the solve the wait gave up on. Guard on `solveId` being present — if the very first submission times out at the transport level, no id has been assigned yet, so `solveId` is `undefined`.
 
 ```ts
 import { TimeoutError } from "nonecap";
