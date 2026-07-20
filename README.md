@@ -20,7 +20,7 @@ Works on Node 18+, Bun, Deno, and edge runtimes. No dependencies.
 
 ## Quick start
 
-Grab an API key from [dashboard.nonecap.com](https://dashboard.nonecap.com), then:
+Grab an API key from [dashboard.nonecap.com](https://dashboard.nonecap.com/signup?utm_source=npm&utm_medium=sdk-readme), then:
 
 ```ts
 import { NoneCap } from "nonecap";
