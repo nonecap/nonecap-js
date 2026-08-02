@@ -3,6 +3,9 @@
  *
  * Hardcoded rather than imported from package.json: a JSON import would need
  * `resolveJsonModule` and would resolve differently under the ESM and CJS
- * builds. `test/version.test.ts` fails if this drifts from package.json.
+ * builds. Bump it in the SAME commit as package.json: the drift check is the
+ * `Version constant matches package.json` step in ci.yml and lives ONLY there,
+ * so `npm test` and `tsc` both stay green on a mismatch (test/version.test.ts
+ * asserts the User-Agent uses VERSION, never that VERSION is right).
  */
-export const VERSION = "0.4.1";
+export const VERSION = "0.5.0";
