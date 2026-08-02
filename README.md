@@ -161,7 +161,8 @@ const ok = await submitToTheSiteYouAreAutomating(solve.token);
 await nc.feedback.report({
   solve_id: solve.id,
   outcome: ok ? "accepted" : "rejected",
-  reason: ok ? undefined : "session invalidated", // optional, freeform
+  reason: ok ? undefined : "session invalidated", // optional, the code your target returned
+  context: ok ? undefined : "3rd retry, rotating residential pool", // optional, anything you think would help us diagnose it
 });
 ```
 
@@ -170,7 +171,7 @@ At volume, buffer the verdicts and flush them in one call. Reports over 500 are 
 ```ts
 const batch = await nc.feedback.reportMany([
   { solve_id: "solve_01J...", outcome: "accepted" },
-  { solve_id: "solve_01J...", outcome: "rejected", reason: "..." },
+  { solve_id: "solve_01J...", outcome: "rejected", reason: "...", context: "..." },
 ]);
 
 // Items resolve independently, so the call succeeds even when some are
@@ -181,6 +182,8 @@ if (batch.failed > 0) {
 ```
 
 `outcome` is one of `accepted`, `rejected`, `unknown` (submitted, verdict unclear), `unused` (never submitted), or `error` (downstream broke for a non-token reason). Only `accepted` and `rejected` count toward the acceptance rate.
+
+`reason` and `context` are both optional free text. `reason` is the code or message your target gave you; `context` is anything else about the attempt you think would help us diagnose it, with no schema at all. Neither is parsed — they are what a human reads when you raise a ticket, and they carry the half of a rejection we cannot see from our side.
 
 Reporting the same solve again corrects the earlier verdict, so retries and late fixes are safe. You can report any of your own solved solves within ~30 days of the solve; corrections to something you already reported are never cut off by that window.
 

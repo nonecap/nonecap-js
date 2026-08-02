@@ -130,19 +130,19 @@ export interface FeedbackReport {
   solve_id: string;
   outcome: FeedbackOutcome;
   /**
-   * @deprecated Omit it. A legacy downstream boolean with inverted polarity
-   * (`false` = accepted, `true` = rejected), kept working for older
-   * integrations. It carries nothing `outcome` does not, and the API rejects an
-   * item whose `estado` disagrees with its `outcome`.
-   */
-  estado?: boolean | null;
-  /**
    * Freeform downstream reason or code — whatever your target returned when it
    * refused the token (e.g. `"invalid-response"`). Truncated to 512 chars
    * server-side. Worth populating: it is the only part of a rejection NoneCap
    * cannot observe on its own.
    */
   reason?: string | null;
+  /**
+   * Optional free text: anything about the attempt you think would help us
+   * diagnose it. No schema — a status code, the body your target returned, the
+   * proxy pool you were on, what your retry did. Read by a human when you raise
+   * a ticket, not parsed. Truncated to 2000 chars server-side.
+   */
+  context?: string | null;
   /** When the verdict happened. Advisory only — the server stamps its own timestamps. */
   reported_at?: string | Date | null;
 }
@@ -152,8 +152,8 @@ export interface Feedback {
   object: "feedback";
   solve_id: string;
   outcome: FeedbackOutcome;
-  estado: boolean | null;
   reason: string | null;
+  context: string | null;
   reported_at: string | null;
   /** How many times this solve's verdict has been written. 1 on first report. */
   report_count: number;

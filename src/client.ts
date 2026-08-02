@@ -555,8 +555,8 @@ function isAbort(err: unknown): boolean {
 /** The fields of a report, ready for the wire: a `Date` becomes an ISO string. */
 function toWireFields(fields: Omit<FeedbackReport, "solve_id">): Record<string, unknown> {
   const wire: Record<string, unknown> = { outcome: fields.outcome };
-  if (fields.estado !== undefined) wire.estado = fields.estado;
   if (fields.reason !== undefined) wire.reason = fields.reason;
+  if (fields.context !== undefined) wire.context = fields.context;
   if (fields.reported_at !== undefined) {
     wire.reported_at =
       fields.reported_at instanceof Date ? fields.reported_at.toISOString() : fields.reported_at;

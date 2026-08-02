@@ -33,8 +33,8 @@ const feedback = (over: Partial<Feedback> = {}): Feedback => ({
   object: "feedback",
   solve_id: "solve_1",
   outcome: "accepted",
-  estado: null,
   reason: null,
+  context: null,
   reported_at: null,
   report_count: 1,
   created_at: "2026-08-01T00:00:00Z",
@@ -58,15 +58,15 @@ describe("feedback.report", () => {
     const result = await nc.feedback.report({
       solve_id: "solve_1",
       outcome: "rejected",
-      estado: true,
-      reason: "documento no vigente",
+      reason: "invalid-response",
+      context: "3rd retry, rotating residential pool",
     });
 
     expect(calls[0]!.url.pathname).toBe("/v1/solves/solve_1/feedback");
     expect(calls[0]!.body).toEqual({
       outcome: "rejected",
-      estado: true,
-      reason: "documento no vigente",
+      reason: "invalid-response",
+      context: "3rd retry, rotating residential pool",
     });
     expect(result.outcome).toBe("rejected");
   });
@@ -133,16 +133,16 @@ describe("feedback.reportMany", () => {
       () => ({ status: 200, body: batchOf(["solve_1", "solve_2"]) }),
     ]);
     const batch = await nc.feedback.reportMany([
-      { solve_id: "solve_1", outcome: "accepted", estado: false },
-      { solve_id: "solve_2", outcome: "rejected", estado: true },
+      { solve_id: "solve_1", outcome: "accepted" },
+      { solve_id: "solve_2", outcome: "rejected", context: "3rd retry" },
     ]);
 
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url.pathname).toBe("/v1/feedback");
     expect(calls[0]!.body).toEqual({
       feedback: [
-        { solve_id: "solve_1", outcome: "accepted", estado: false },
-        { solve_id: "solve_2", outcome: "rejected", estado: true },
+        { solve_id: "solve_1", outcome: "accepted" },
+        { solve_id: "solve_2", outcome: "rejected", context: "3rd retry" },
       ],
     });
     expect(batch.recorded).toBe(2);
