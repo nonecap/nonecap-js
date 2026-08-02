@@ -114,17 +114,21 @@ export function errorFromResponse(
     case "account_locked":
       return new PermissionError(message, opts);
     case "insufficient_credits":
+    case "key_credit_limit_exceeded":
       return new InsufficientCreditsError(message, opts);
     case "invalid_request":
     case "validation_error":
+    case "expired_window":
       return new ValidationError(message, opts);
     case "not_found":
+    case "not_eligible":
       return new NotFoundError(message, opts);
     case "conflict":
       return new ConflictError(message, opts);
     case "rate_limited":
     case "concurrency_limit_exceeded":
     case "ext_daily_limit":
+    case "sitekey_rate_limited":
       return new RateLimitError(message, opts);
     default:
       return new APIError(message, opts);

@@ -10,6 +10,9 @@ import {
 import type {
   Account,
   ErrorCode,
+  Feedback,
+  FeedbackBatch,
+  FeedbackReport,
   Solve,
   SolveCreateParams,
   SolveList,
@@ -20,6 +23,8 @@ import type {
 const DEFAULT_BASE_URL = "https://api.nonecap.com";
 /** The API caps server-side long-poll at 90 seconds. */
 const MAX_WAIT_SECONDS = 90;
+/** The API caps one `POST /v1/feedback` call at 500 items. */
+export const FEEDBACK_BATCH_MAX = 500;
 const TERMINAL: ReadonlySet<SolveStatus> = new Set([
   "solved",
   "failed",
@@ -198,6 +203,84 @@ export class NoneCap {
       params: SolveListParams = {},
       options: { signal?: AbortSignal } = {},
     ): AsyncIterableIterator<Solve> => this.#listAll(params, options),
+  };
+
+  /**
+   * Report what your downstream target did with the tokens we minted.
+   *
+   * Feedback is free, own-solves-only, and idempotent per solve id: reporting
+   * the same solve again corrects the earlier verdict. Only `solved` solves can
+   * be reported, and only within the API's reporting window (~30 days from the
+   * solve; corrections to an already-reported solve are never re-gated by it).
+   */
+  readonly feedback = {
+    /**
+     * Report one solve's downstream outcome, returning the recorded feedback.
+     *
+     * Unlike {@link NoneCap.feedback.reportMany}, a rejected report throws:
+     * {@link NotFoundError} if the solve isn't yours or never minted a token,
+     * {@link ValidationError} if a field is wrong or the reporting window closed.
+     *
+     * ```ts
+     * await nc.feedback.report({ solve_id: solve.id, outcome: "rejected", reason: "..." });
+     * ```
+     */
+    report: (report: FeedbackReport, options: { signal?: AbortSignal } = {}): Promise<Feedback> => {
+      const { solve_id, ...fields } = report;
+      return this.#request<Feedback>(
+        "POST",
+        `/v1/solves/${encodeURIComponent(solve_id)}/feedback`,
+        { body: toWireFields(fields), signal: options.signal },
+      );
+    },
+
+    /**
+     * Report many verdicts at once — the path to use at volume. Buffer verdicts
+     * as you learn them and flush them here.
+     *
+     * The call succeeds even when individual items are rejected: each is
+     * resolved on its own so one stale id never discards the rest. Check
+     * `failed` rather than relying on a thrown error.
+     *
+     * More than {@link FEEDBACK_BATCH_MAX} reports are split across sequential
+     * requests and merged into one result, in request order. An empty array is
+     * a no-op that returns an empty batch without a request.
+     *
+     * ```ts
+     * const batch = await nc.feedback.reportMany(buffer);
+     * if (batch.failed) console.warn(batch.results.filter((r) => r.status === "error"));
+     * ```
+     */
+    reportMany: async (
+      reports: readonly FeedbackReport[],
+      options: { signal?: AbortSignal } = {},
+    ): Promise<FeedbackBatch> => {
+      const merged: FeedbackBatch = {
+        object: "feedback_batch",
+        recorded: 0,
+        updated: 0,
+        unchanged: 0,
+        failed: 0,
+        results: [],
+      };
+      // Chunks are sent in order and the server upserts last-write-wins, so a
+      // solve reported twice still ends at its last value. Duplicates split
+      // across a chunk boundary each get written, though, so the earlier one
+      // reports `recorded`/`updated` where a single request would say
+      // `unchanged`.
+      for (let i = 0; i < reports.length; i += FEEDBACK_BATCH_MAX) {
+        const batch = await this.#request<FeedbackBatch>("POST", "/v1/feedback", {
+          body: { feedback: reports.slice(i, i + FEEDBACK_BATCH_MAX).map(toWireReport) },
+          signal: options.signal,
+        });
+        merged.recorded += batch.recorded;
+        merged.updated += batch.updated;
+        merged.unchanged += batch.unchanged;
+        merged.failed += batch.failed;
+        merged.results.push(...batch.results);
+      }
+      return merged;
+    },
   };
 
   /** Fetch your account, including the current credit balance. */
@@ -462,4 +545,21 @@ function waitSeconds(deadline: number): number {
 
 function isAbort(err: unknown): boolean {
   return err instanceof Error && err.name === "AbortError";
+}
+
+/** The fields of a report, ready for the wire: a `Date` becomes an ISO string. */
+function toWireFields(fields: Omit<FeedbackReport, "solve_id">): Record<string, unknown> {
+  const wire: Record<string, unknown> = { outcome: fields.outcome };
+  if (fields.estado !== undefined) wire.estado = fields.estado;
+  if (fields.reason !== undefined) wire.reason = fields.reason;
+  if (fields.reported_at !== undefined) {
+    wire.reported_at =
+      fields.reported_at instanceof Date ? fields.reported_at.toISOString() : fields.reported_at;
+  }
+  return wire;
+}
+
+function toWireReport(report: FeedbackReport): Record<string, unknown> {
+  const { solve_id, ...fields } = report;
+  return { solve_id, ...toWireFields(fields) };
 }

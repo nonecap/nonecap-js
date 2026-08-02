@@ -102,6 +102,96 @@ export interface SolveList {
   has_more: boolean;
 }
 
+/**
+ * What the downstream target did with a solve's token.
+ *
+ * Only `accepted` and `rejected` count toward the acceptance rate — the other
+ * three are recorded but kept out of the denominator, so a client-side outage
+ * can't look like a token-quality regression.
+ */
+export type FeedbackOutcome =
+  /** Downstream accepted the token. */
+  | "accepted"
+  /** Downstream rejected the token. */
+  | "rejected"
+  /** Token was submitted but the verdict couldn't be determined. */
+  | "unknown"
+  /** Token was never submitted downstream (expired, aborted, deduped). */
+  | "unused"
+  /** Downstream failed for a non-token reason (network, 5xx, maintenance). */
+  | "error";
+
+/**
+ * One verdict to report, for {@link NoneCap.feedback.report} and
+ * {@link NoneCap.feedback.reportMany}.
+ */
+export interface FeedbackReport {
+  /** The solve id returned by `solves.create` / `solve()`. Must be your own, `solved` solve. */
+  solve_id: string;
+  outcome: FeedbackOutcome;
+  /**
+   * The raw downstream boolean, when your target has one (OSIPTEL's `estado`:
+   * `false` = accepted, `true` = rejected). Stored verbatim. The API rejects an
+   * item whose `estado` disagrees with its `outcome`.
+   */
+  estado?: boolean | null;
+  /** Freeform downstream reason or code. Truncated to 512 chars server-side. */
+  reason?: string | null;
+  /** When the verdict happened. Advisory only — the server stamps its own timestamps. */
+  reported_at?: string | Date | null;
+}
+
+/** A recorded feedback resource. */
+export interface Feedback {
+  object: "feedback";
+  solve_id: string;
+  outcome: FeedbackOutcome;
+  estado: boolean | null;
+  reason: string | null;
+  reported_at: string | null;
+  /** How many times this solve's verdict has been written. 1 on first report. */
+  report_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** What happened to one item of a batch. */
+export type FeedbackStatus =
+  /** First report for this solve. */
+  | "recorded"
+  /** Overwrote an earlier report. */
+  | "updated"
+  /** Identical to what was already stored — no write. */
+  | "unchanged"
+  /** Rejected; see `error`. */
+  | "error";
+
+/** One item's result, in the same position as the report you sent. */
+export interface FeedbackResult {
+  solve_id: string;
+  status: FeedbackStatus;
+  /** Set only when `status === "error"`. Note the bare shape: no `error` wrapper. */
+  error: { code: ErrorCode; message: string; param: string | null } | null;
+}
+
+/**
+ * The result of {@link NoneCap.feedback.reportMany}.
+ *
+ * Items are resolved independently, so one bad solve id never discards the
+ * rest — which also means a broken integration reports zero failures at the
+ * HTTP level. Check `failed` (or scan `results`), not just the absence of a
+ * thrown error.
+ */
+export interface FeedbackBatch {
+  object: "feedback_batch";
+  recorded: number;
+  updated: number;
+  unchanged: number;
+  failed: number;
+  /** One entry per report you sent, in request order. */
+  results: FeedbackResult[];
+}
+
 /** Your account, including the current credit balance. */
 export interface Account {
   object: "account";
@@ -124,6 +214,14 @@ export type ErrorCode =
   | "rate_limited"
   | "ext_daily_limit"
   | "concurrency_limit_exceeded"
+  /** hCaptcha is rate-limiting this sitekey; the submit was shed. Honour `Retry-After`. */
+  | "sitekey_rate_limited"
+  /** The submitting API key hit its own spend cap. */
+  | "key_credit_limit_exceeded"
+  /** Feedback: the solve is missing, not yours, or never produced a token. */
+  | "not_eligible"
+  /** Feedback: a first report arrived after the reporting window closed. */
+  | "expired_window"
   | "internal_error"
   | "pool_exhausted";
 

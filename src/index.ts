@@ -4,7 +4,7 @@
  * @packageDocumentation
  */
 
-export { NoneCap, SolveHandle, isTerminal } from "./client.js";
+export { NoneCap, SolveHandle, isTerminal, FEEDBACK_BATCH_MAX } from "./client.js";
 export type {
   NoneCapOptions,
   WaitOptions,
@@ -38,6 +38,12 @@ export type {
   SolveList,
   Proxy,
   Account,
+  FeedbackOutcome,
+  FeedbackReport,
+  Feedback,
+  FeedbackStatus,
+  FeedbackResult,
+  FeedbackBatch,
   ErrorCode,
   ErrorEnvelope,
 } from "./types.js";

@@ -148,6 +148,42 @@ await nc.solve({
 });
 ```
 
+## Reporting token acceptance
+
+A token that hCaptcha blessed can still be refused by the site you send it to. Tell us what happened and we tune minting against your real acceptance rate — it's free, and it's the fastest way to get a regression on your sitekey noticed.
+
+Keep the `solve_id` next to the token you submit downstream, then report the verdict:
+
+```ts
+const solve = await nc.solve({ type: "hcaptcha", sitekey, url });
+const ok = await submitToTheSiteYouAreAutomating(solve.token);
+
+await nc.feedback.report({
+  solve_id: solve.id,
+  outcome: ok ? "accepted" : "rejected",
+  reason: ok ? undefined : "session invalidated", // optional, freeform
+});
+```
+
+At volume, buffer the verdicts and flush them in one call. Reports over 500 are split across requests for you:
+
+```ts
+const batch = await nc.feedback.reportMany([
+  { solve_id: "solve_01J...", outcome: "accepted" },
+  { solve_id: "solve_01J...", outcome: "rejected", reason: "..." },
+]);
+
+// Items resolve independently, so the call succeeds even when some are
+// rejected — check `failed` rather than relying on a throw.
+if (batch.failed > 0) {
+  console.warn(batch.results.filter((r) => r.status === "error"));
+}
+```
+
+`outcome` is one of `accepted`, `rejected`, `unknown` (submitted, verdict unclear), `unused` (never submitted), or `error` (downstream broke for a non-token reason). Only `accepted` and `rejected` count toward the acceptance rate.
+
+Reporting the same solve again corrects the earlier verdict, so retries and late fixes are safe. You can report any of your own solved solves within ~30 days of the solve; corrections to something you already reported are never cut off by that window.
+
 ## Lower-level API
 
 `solve()` is the convenient path. When you want control over submission and polling, the raw resource methods map one to one to the REST API.
