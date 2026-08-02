@@ -22,6 +22,16 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Version constant matches package.json
+        # src/version.ts is what the User-Agent carries; package.json is what the
+        # publish job gates the tag on. A drift here ships a lying UA.
+        run: |
+          want="$(node -p "require('./package.json').version")"
+          got="$(node -p "require('fs').readFileSync('src/version.ts','utf8').match(/\"(.*)\"/)[1]")"
+          if [ "$want" != "$got" ]; then
+            echo "::error::src/version.ts is $got but package.json is $want"
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

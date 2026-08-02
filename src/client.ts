@@ -20,7 +20,10 @@ import type {
   SolveStatus,
 } from "./types.js";
 
+import { VERSION } from "./version.js";
+
 const DEFAULT_BASE_URL = "https://api.nonecap.com";
+const USER_AGENT = `nonecap-js/${VERSION}`;
 /** The API caps server-side long-poll at 90 seconds. */
 const MAX_WAIT_SECONDS = 90;
 /** The API caps one `POST /v1/feedback` call at 500 items. */
@@ -336,6 +339,8 @@ export class NoneCap {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       Accept: "application/json",
+      // Browsers drop this as a forbidden header; on Node it identifies the SDK.
+      "User-Agent": USER_AGENT,
     };
     let bodyInit: string | undefined;
     if (options.body !== undefined) {
