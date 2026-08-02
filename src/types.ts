@@ -130,12 +130,18 @@ export interface FeedbackReport {
   solve_id: string;
   outcome: FeedbackOutcome;
   /**
-   * The raw downstream boolean, when your target has one (OSIPTEL's `estado`:
-   * `false` = accepted, `true` = rejected). Stored verbatim. The API rejects an
+   * @deprecated Omit it. A legacy downstream boolean with inverted polarity
+   * (`false` = accepted, `true` = rejected), kept working for older
+   * integrations. It carries nothing `outcome` does not, and the API rejects an
    * item whose `estado` disagrees with its `outcome`.
    */
   estado?: boolean | null;
-  /** Freeform downstream reason or code. Truncated to 512 chars server-side. */
+  /**
+   * Freeform downstream reason or code — whatever your target returned when it
+   * refused the token (e.g. `"invalid-response"`). Truncated to 512 chars
+   * server-side. Worth populating: it is the only part of a rejection NoneCap
+   * cannot observe on its own.
+   */
   reason?: string | null;
   /** When the verdict happened. Advisory only — the server stamps its own timestamps. */
   reported_at?: string | Date | null;
