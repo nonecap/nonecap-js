@@ -34,7 +34,14 @@ interface SolveCreateBase {
   sitekey: string;
   /** The page URL the captcha is served on. */
   url: string;
-  /** User agent to present to the captcha. */
+  /**
+   * User agent to present to the captcha.
+   *
+   * @deprecated Since 2026-08-13 this is accepted but ignored — it no longer reaches the
+   * wire. Every solve presents its own coherent browser identity (user agent, client hints,
+   * language header and proof-of-work all describing one machine); a caller-supplied string
+   * replaced only some of those and made the request contradict itself. Safe to remove.
+   */
   user_agent?: string;
   /** Proxy to route the solve through, as a structured object or a URL string. */
   proxy?: Proxy | string;
