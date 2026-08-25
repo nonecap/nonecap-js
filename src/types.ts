@@ -75,6 +75,12 @@ export interface Solve {
   url: string;
   /** The captcha token once `status === "solved"`, otherwise null. */
   token: string | null;
+  /**
+   * hCaptcha's response key for the challenge behind `token` — the value the
+   * widget's `hcaptcha.getRespKey()` returns (`E0_…`). Sites that verify the
+   * token and key together need both. Set alongside `token`, otherwise null.
+   */
+  resp_key: string | null;
   /** Set when the solve did not succeed, otherwise null. */
   error: SolveError | null;
   /** Credits charged for this solve. Only successful solves are charged. */

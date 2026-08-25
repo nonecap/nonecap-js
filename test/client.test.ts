@@ -44,6 +44,7 @@ const baseSolve = (over: Partial<Solve> = {}): Solve => ({
   sitekey: "sk",
   url: "https://example.com",
   token: null,
+  resp_key: null,
   error: null,
   credits_charged: null,
   proxy_bytes: null,
@@ -73,6 +74,17 @@ describe("construction", () => {
     })();
     await nc.solves.retrieve("solve_1");
     expect(calls[0]!.url.toString()).toBe("https://x.test/v1/solves/solve_1");
+  });
+});
+
+describe("solves.retrieve", () => {
+  it("returns resp_key beside the token on a solved solve", async () => {
+    const { nc } = client([
+      () => ({ status: 200, body: baseSolve({ status: "solved", token: "P1_tok", resp_key: "E0_key" }) }),
+    ]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.token).toBe("P1_tok");
+    expect(solve.resp_key).toBe("E0_key");
   });
 });
 
