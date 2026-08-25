@@ -34,6 +34,7 @@ const solve = await nc.solve({
 });
 
 console.log(solve.token); // the hCaptcha token, ready to submit
+console.log(solve.resp_key); // hcaptcha.getRespKey() equivalent, for sites that verify the pair
 ```
 
 `solve()` submits the captcha and waits until it is done, using the API's long-poll so you are not hammering it with requests. It returns the solved solve, or throws if the solve fails or your timeout runs out.
