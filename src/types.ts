@@ -59,10 +59,50 @@ export type SolveCreateParams =
   | (SolveCreateBase & { type: "hcaptcha"; rqdata?: string })
   | (SolveCreateBase & { type: "hcaptcha_enterprise"; rqdata: string });
 
+/** Why a solve did not produce a token. `expired` and `cancelled` are statuses
+ *  the API reports through the same object. */
+export type SolveErrorCode =
+  | "challenge_not_loaded"
+  | "token_not_granted"
+  | "challenge_expired"
+  | "challenge_errored"
+  | "proxy_error"
+  | "target_unreachable"
+  | "vision_error"
+  | "internal_error"
+  | "unsolvable_variant"
+  | "capacity_exhausted"
+  | "cancelled"
+  | "expired";
+
+/** A typed sub-reason within {@link SolveErrorCode}, set when the solver knows
+ *  more than the code says. */
+export type SolveErrorReason =
+  /** hCaptcha answered 429 before serving a challenge. */
+  | "sitekey_rate_limited"
+  /** The sitekey passes without a challenge and issued no token this time. */
+  | "passive_required"
+  /** hCaptcha kept serving challenges without accepting an answer. */
+  | "rounds_exhausted"
+  /** Your proxy refused the connection (credentials or source IP). */
+  | "proxy_rejected"
+  /** Your proxy intercepts or rewrites TLS. */
+  | "proxy_tls"
+  /** Your proxy accepted the connection but never answered within the deadline. */
+  | "proxy_stalled";
+
 /** The error attached to a solve that did not succeed. */
 export interface SolveError {
-  code: string;
+  /** Codes the API may add later still arrive; narrow with a switch and keep a default. */
+  code: SolveErrorCode | (string & {});
+  /** What happened, what to do, and whether the solve was charged. */
   message: string;
+  /** Typed sub-reason, or null when the code says it all. */
+  reason: SolveErrorReason | (string & {}) | null;
+  /** Whether re-submitting the same request unchanged can succeed. */
+  retryable: boolean;
+  /** Reference for the codes and reasons. */
+  docs_url: string;
 }
 
 /** A solve resource. */
@@ -241,8 +281,13 @@ export type ErrorCode =
   | "not_eligible"
   /** Feedback: a first report arrived after the reporting window closed. */
   | "expired_window"
-  | "internal_error"
-  | "pool_exhausted";
+  /** 503: new solves are paused for maintenance. Retry shortly. */
+  | "maintenance"
+  /** 413: the request body exceeds the route's size limit. */
+  | "payload_too_large"
+  /** 415: a JSON route was called without `Content-Type: application/json`. */
+  | "unsupported_media_type"
+  | "internal_error";
 
 /** The Stripe-style error envelope every non-2xx response carries. */
 export interface ErrorEnvelope {
@@ -250,5 +295,7 @@ export interface ErrorEnvelope {
     code: ErrorCode;
     message: string;
     param: string | null;
+    /** Correlation id for support; also the `X-Request-Id` response header. */
+    request_id?: string;
   };
 }

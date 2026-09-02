@@ -403,13 +403,18 @@ export class NoneCap {
       return json as T;
     }
 
-    const envelope = json as { error?: { code?: ErrorCode; message?: string; param?: string | null } } | undefined;
+    const envelope = json as
+      | { error?: { code?: ErrorCode; message?: string; param?: string | null; request_id?: string } }
+      | undefined;
     const apiError = envelope?.error;
+    const retryAfterRaw = res.headers.get("retry-after");
+    const retryAfter = retryAfterRaw !== null && /^\d+$/.test(retryAfterRaw) ? Number(retryAfterRaw) : undefined;
     throw errorFromResponse(
       res.status,
       apiError?.code,
       apiError?.message ?? `HTTP ${res.status}`,
       apiError?.param ?? null,
+      { requestId: apiError?.request_id ?? res.headers.get("x-request-id") ?? undefined, retryAfter },
     );
   }
 }
