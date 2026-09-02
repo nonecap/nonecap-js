@@ -6,6 +6,13 @@ import {
   InsufficientCreditsError,
   ValidationError,
   RateLimitError,
+  ConcurrencyLimitError,
+  SitekeyRateLimitedError,
+  KeyCreditLimitError,
+  PayloadTooLargeError,
+  UnsupportedMediaTypeError,
+  ServiceUnavailableError,
+  PermissionError,
   ConflictError,
   NotFoundError,
   APIError,
@@ -150,12 +157,28 @@ describe("me", () => {
 describe("error mapping", () => {
   const cases: [number, string, new (...a: any[]) => Error][] = [
     [401, "unauthorized", AuthenticationError],
+    [403, "forbidden", PermissionError],
+    [403, "account_locked", PermissionError],
     [402, "insufficient_credits", InsufficientCreditsError],
+    [402, "key_credit_limit_exceeded", KeyCreditLimitError],
+    [402, "key_credit_limit_exceeded", InsufficientCreditsError],
+    [400, "invalid_request", ValidationError],
     [422, "validation_error", ValidationError],
+    [422, "expired_window", ValidationError],
+    [413, "payload_too_large", PayloadTooLargeError],
+    [413, "payload_too_large", ValidationError],
+    [415, "unsupported_media_type", UnsupportedMediaTypeError],
+    [429, "concurrency_limit_exceeded", ConcurrencyLimitError],
     [429, "concurrency_limit_exceeded", RateLimitError],
+    [429, "sitekey_rate_limited", SitekeyRateLimitedError],
+    [429, "rate_limited", RateLimitError],
     [409, "conflict", ConflictError],
     [404, "not_found", NotFoundError],
+    [404, "not_eligible", NotFoundError],
+    [503, "maintenance", ServiceUnavailableError],
+    [503, "maintenance", APIError],
     [500, "internal_error", APIError],
+    [500, "some_future_code", APIError],
   ];
   for (const [status, code, Klass] of cases) {
     it(`maps ${status}/${code} to ${Klass.name}`, async () => {
@@ -169,6 +192,37 @@ describe("error mapping", () => {
       () => ({ status: 422, body: { error: { code: "validation_error", message: "bad", param: "sitekey" } } }),
     ]);
     await expect(nc.me()).rejects.toMatchObject({ param: "sitekey", code: "validation_error", status: 422 });
+  });
+
+  it("reads Retry-After and the request id off a 429", async () => {
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ error: { code: "sitekey_rate_limited", message: "shed", param: null, request_id: "req_1" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "15", "X-Request-Id": "req_1" },
+      });
+    const nc = new NoneCap({ apiKey: "k", fetch });
+    await expect(nc.me()).rejects.toMatchObject({ retryAfter: 15, requestId: "req_1", code: "sitekey_rate_limited" });
+  });
+
+  it("falls back to the X-Request-Id header when the envelope carries no request_id", async () => {
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ error: { code: "internal_error", message: "boom", param: null } }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", "X-Request-Id": "req_2" },
+      });
+    const nc = new NoneCap({ apiKey: "k", fetch });
+    await expect(nc.me()).rejects.toMatchObject({ requestId: "req_2", retryAfter: undefined });
+  });
+
+  it("SolveFailedError exposes the typed reason and retryable off solve.error", async () => {
+    const failed = baseSolve({
+      status: "failed",
+      error: { code: "proxy_error", message: "Your proxy rejected the connection.", reason: "proxy_rejected", retryable: false, docs_url: "https://nonecap.com/api-reference#errors" },
+    });
+    const { nc } = client([() => ({ status: 200, body: failed })]);
+    const err = await nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://example.com" }).catch((e) => e);
+    expect(err).toBeInstanceOf(SolveFailedError);
+    expect(err).toMatchObject({ solveCode: "proxy_error", reason: "proxy_rejected", retryable: false });
   });
 
   it("wraps a non-JSON body in APIError", async () => {
@@ -202,11 +256,14 @@ describe("solve() helper", () => {
   });
 
   it("throws SolveFailedError with the solve attached when it fails", async () => {
-    const failed = baseSolve({ status: "failed", error: { code: "unsolvable", message: "no" } });
+    const failed = baseSolve({
+      status: "failed",
+      error: { code: "unsolvable_variant", message: "no", reason: null, retryable: false, docs_url: "https://nonecap.com/api-reference#errors" },
+    });
     const { nc } = client([() => ({ status: 200, body: failed })]);
     const err = await nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" }).catch((e) => e);
     expect(err).toBeInstanceOf(SolveFailedError);
-    expect((err as SolveFailedError).solve.error?.code).toBe("unsolvable");
+    expect((err as SolveFailedError).solve.error?.code).toBe("unsolvable_variant");
   });
 
   it("times out if the solve never finishes", async () => {

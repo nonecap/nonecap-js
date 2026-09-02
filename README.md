@@ -56,18 +56,22 @@ try {
   // use token
 } catch (err) {
   if (err instanceof SolveFailedError) {
-    console.error("Could not solve it:", err.solve.error?.code);
+    // The message says what happened, what to do, and that nothing was charged.
+    console.error(err.solve.error?.message);
+    if (err.retryable) scheduleRetry();
   } else if (err instanceof InsufficientCreditsError) {
     console.error("Out of credits. Top up at dashboard.nonecap.com");
   } else if (err instanceof RateLimitError) {
-    console.error("Too many in flight, back off and retry");
+    await new Promise((r) => setTimeout(r, (err.retryAfter ?? 1) * 1000));
   } else {
     throw err;
   }
 }
 ```
 
-The error subclasses are `AuthenticationError` (401), `PermissionError` (403), `InsufficientCreditsError` (402), `ValidationError` (422/400, with a `param` naming the bad field), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429), `APIError` (5xx), and `ConnectionError` (the request never landed). `SolveFailedError` carries the full `solve` so you can read `solve.error` and the timing fields.
+The error subclasses are `AuthenticationError` (401), `PermissionError` (403), `InsufficientCreditsError` (402, with `KeyCreditLimitError` when one API key hit its own cap), `ValidationError` (422/400, with a `param` naming the bad field; `PayloadTooLargeError` for 413 and `UnsupportedMediaTypeError` for 415), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429, with `ConcurrencyLimitError` and `SitekeyRateLimitedError` telling the two apart; `retryAfter` is the seconds the API asked you to wait), `APIError` (5xx, with `ServiceUnavailableError` for a maintenance pause), and `ConnectionError` (the request never landed). Every error from a response carries `requestId`, the id to quote to support.
+
+`SolveFailedError` carries the full `solve`. `solve.error.code` is a `SolveErrorCode`, `solve.error.reason` a typed sub-reason or `null` (`proxy_rejected`, `sitekey_rate_limited`, …), and `solve.error.retryable` says whether resubmitting the same request unchanged can succeed; `err.retryable`, `err.reason` and `err.solveCode` are shortcuts to those fields. Failed solves are never charged.
 
 ## Cancelling a solve
 
