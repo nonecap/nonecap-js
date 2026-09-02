@@ -8,4 +8,4 @@
  * so `npm test` and `tsc` both stay green on a mismatch (test/version.test.ts
  * asserts the User-Agent uses VERSION, never that VERSION is right).
  */
-export const VERSION = "0.6.0";
+export const VERSION = "0.7.0";
