@@ -21,6 +21,7 @@ import {
   isTerminal,
   type Solve,
   type FetchLike,
+  type SolveErrorReason,
 } from "../src/index.js";
 
 type Handler = (url: URL, init: RequestInit) => { status: number; body: unknown };
@@ -223,6 +224,20 @@ describe("error mapping", () => {
     const err = await nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://example.com" }).catch((e) => e);
     expect(err).toBeInstanceOf(SolveFailedError);
     expect(err).toMatchObject({ solveCode: "proxy_error", reason: "proxy_rejected", retryable: false });
+  });
+
+  it.each([
+    { code: "proxy_error", reason: "proxy_egress_blocked" satisfies SolveErrorReason },
+    { code: "target_unreachable", reason: "target_egress_blocked" satisfies SolveErrorReason },
+  ])("egress-blocked solves surface $reason under $code as not retryable", async ({ code, reason }) => {
+    const failed = baseSolve({
+      status: "failed",
+      error: { code, message: "points at a private or internal network address", reason, retryable: false, docs_url: "https://nonecap.com/api-reference#errors" },
+    });
+    const { nc } = client([() => ({ status: 200, body: failed })]);
+    const err = await nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://example.com" }).catch((e) => e);
+    expect(err).toBeInstanceOf(SolveFailedError);
+    expect(err).toMatchObject({ solveCode: code, reason, retryable: false });
   });
 
   it("wraps a non-JSON body in APIError", async () => {

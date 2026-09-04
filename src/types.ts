@@ -89,7 +89,11 @@ export type SolveErrorReason =
   /** Your proxy intercepts or rewrites TLS. */
   | "proxy_tls"
   /** Your proxy accepted the connection but never answered within the deadline. */
-  | "proxy_stalled";
+  | "proxy_stalled"
+  /** Your proxy points at a private or internal network address, so no connection was attempted. */
+  | "proxy_egress_blocked"
+  /** The target url points at a private or internal network address, so the page was never opened. */
+  | "target_egress_blocked";
 
 /** The error attached to a solve that did not succeed. */
 export interface SolveError {
