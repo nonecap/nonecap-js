@@ -8,7 +8,7 @@
 
 <p align="center">Official TypeScript client for the <a href="https://nonecap.com">NoneCap</a> hCaptcha solving API.</p>
 
-Submit a captcha, get back a token. The client handles the polling, the timeouts, and the error cases so you do not have to write the fetch loop yourself.
+Submit an hCaptcha challenge from a site you are authorised to test or automate, get back a token. The client handles the polling, the timeouts, and the error cases so you do not have to write the fetch loop yourself. Use is subject to the [NoneCap terms](https://nonecap.com/terms/).
 
 ## Install
 
@@ -161,13 +161,13 @@ Keep the `solve_id` next to the token you submit downstream, then report the ver
 
 ```ts
 const solve = await nc.solve({ type: "hcaptcha", sitekey, url });
-const ok = await submitToTheSiteYouAreAutomating(solve.token);
+const ok = await submitForm(solve.token);
 
 await nc.feedback.report({
   solve_id: solve.id,
   outcome: ok ? "accepted" : "rejected",
   reason: ok ? undefined : "session invalidated", // optional, the code your target returned
-  context: ok ? undefined : "3rd retry, rotating residential pool", // optional, anything you think would help us diagnose it
+  context: ok ? undefined : "3rd retry", // optional, anything you think would help us diagnose it
 });
 ```
 
