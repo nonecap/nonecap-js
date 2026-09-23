@@ -240,6 +240,21 @@ describe("error mapping", () => {
     expect(err).toMatchObject({ solveCode: code, reason, retryable: false });
   });
 
+  it.each([
+    { code: "capacity_exhausted", reason: "profile_engine_unavailable" satisfies SolveErrorReason, retryable: true },
+    { code: "capacity_exhausted", reason: "browser_lane_capped" satisfies SolveErrorReason, retryable: true },
+    { code: "internal_error", reason: "type_not_served" satisfies SolveErrorReason, retryable: false },
+  ])("surfaces $reason under $code", async ({ code, reason, retryable }) => {
+    const failed = baseSolve({
+      status: "failed",
+      error: { code, message: "not charged", reason, retryable, docs_url: "https://nonecap.com/api-reference#errors" },
+    });
+    const { nc } = client([() => ({ status: 200, body: failed })]);
+    const err = await nc.solve({ type: "hcaptcha", sitekey: "sk", url: "https://example.com" }).catch((e) => e);
+    expect(err).toBeInstanceOf(SolveFailedError);
+    expect(err).toMatchObject({ solveCode: code, reason, retryable });
+  });
+
   it("wraps a non-JSON body in APIError", async () => {
     const { fetch } = (() => {
       const f: FetchLike = async () => new Response("<html>502</html>", { status: 502 });
