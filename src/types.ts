@@ -93,7 +93,14 @@ export type SolveErrorReason =
   /** Your proxy points at a private or internal network address, so no connection was attempted. */
   | "proxy_egress_blocked"
   /** The target url points at a private or internal network address, so the page was never opened. */
-  | "target_egress_blocked";
+  | "target_egress_blocked"
+  /** NoneCap could not prepare the solve on this attempt; it was not started. Retry shortly. */
+  | "profile_engine_unavailable"
+  /** The solve could not be run. Contact support with the solve id. */
+  | "type_not_served"
+  /** Tokens for this sitekey are being reported as rejected at a high rate, so fewer solves
+   *  are run for it for a while; this one was not started. Retry after a short wait. */
+  | "browser_lane_capped";
 
 /** The error attached to a solve that did not succeed. */
 export interface SolveError {
