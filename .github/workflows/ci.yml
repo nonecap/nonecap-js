@@ -37,14 +37,15 @@ jobs:
       - run: npm run build
 
   publish:
-    # Tag pushes only (v0.1.0, v1.2.3, ...): publish to npm. Requires an
-    # NPM_TOKEN secret (a granular automation token scoped to this package).
+    # Tag pushes only (v0.1.0, v1.2.3, ...): publish to npm. No token: npmjs.com
+    # trusts this repo's ci.yml as the package's trusted publisher (OIDC), so
+    # renaming this file breaks publishing until the npm setting is updated too.
     needs: test
     if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm publish --provenance needs OIDC token access
+      id-token: write # trusted publishing trades this job's OIDC token for a publish token
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,6 +61,6 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME does not match package.json ($want). Bump the version or retag."
             exit 1
           fi
+      - name: npm with trusted publishing (needs >= 11.5.1; Node 22 ships 10.x)
+        run: npm install -g npm@11
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
