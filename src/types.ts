@@ -294,6 +294,8 @@ export type ErrorCode =
   | "concurrency_limit_exceeded"
   /** hCaptcha is rate-limiting this sitekey; the submit was shed. Honour `Retry-After`. */
   | "sitekey_rate_limited"
+  /** Your own proxy is refusing connections; submits through it were shed. Honour `Retry-After`. */
+  | "proxy_unavailable"
   /** The submitting API key hit its own spend cap. */
   | "key_credit_limit_exceeded"
   /** Feedback: the solve is missing, not yours, or never produced a token. */
