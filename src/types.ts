@@ -41,6 +41,7 @@ interface SolveCreateBase {
    * wire. Every solve presents its own coherent browser identity (user agent, client hints,
    * language header and proof-of-work all describing one machine); a caller-supplied string
    * replaced only some of those and made the request contradict itself. Safe to remove.
+   * To submit the token as the browser that earned it, read the solve's `user_agent`.
    */
   user_agent?: string;
   /** Proxy to route the solve through, as a structured object or a URL string. */
@@ -132,6 +133,13 @@ export interface Solve {
    * token and key together need both. Set alongside `token`, otherwise null.
    */
   resp_key: string | null;
+  /**
+   * The browser user agent the solve presented while it earned `token`. Some sites
+   * reject a token submitted by a different browser version, so send the token with
+   * this as your `User-Agent` header (and from the same IP as your proxy, if you gave
+   * one). Set alongside `token`, otherwise null.
+   */
+  user_agent: string | null;
   /** Set when the solve did not succeed, otherwise null. */
   error: SolveError | null;
   /** Credits charged for this solve. Only successful solves are charged. */

@@ -53,6 +53,7 @@ const baseSolve = (over: Partial<Solve> = {}): Solve => ({
   url: "https://example.com",
   token: null,
   resp_key: null,
+  user_agent: null,
   error: null,
   credits_charged: null,
   proxy_bytes: null,
@@ -93,6 +94,23 @@ describe("solves.retrieve", () => {
     const solve = await nc.solves.retrieve("solve_1");
     expect(solve.token).toBe("P1_tok");
     expect(solve.resp_key).toBe("E0_key");
+  });
+});
+
+describe("solve user_agent", () => {
+  it("returns the user agent the solve presented beside the token", async () => {
+    const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
+    const { nc } = client([
+      () => ({ status: 200, body: baseSolve({ status: "solved", token: "P1_tok", user_agent: ua }) }),
+    ]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.user_agent).toBe(ua);
+  });
+
+  it("is null until the solve is solved", async () => {
+    const { nc } = client([() => ({ status: 200, body: baseSolve() })]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.user_agent).toBeNull();
   });
 });
 
