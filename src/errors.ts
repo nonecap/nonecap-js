@@ -75,6 +75,11 @@ export class ConcurrencyLimitError extends RateLimitError {}
  *  Wait `retryAfter` seconds; the message says whether a different proxy pool can help. */
 export class SitekeyRateLimitedError extends RateLimitError {}
 
+/** 429 — nearly every recent solve through the proxy you supplied failed because the
+ *  proxy refused the connection, so submits through it are shed. Fix the proxy or
+ *  switch exit; `retryAfter` says when the next submit is let through to re-check it. */
+export class ProxyUnavailableError extends RateLimitError {}
+
 /** 5xx, or a response that wasn't the expected shape. `requestId` is the id to quote. */
 export class APIError extends NoneCapError {}
 
@@ -181,6 +186,8 @@ export function errorFromResponse(
       return new ConcurrencyLimitError(message, opts);
     case "sitekey_rate_limited":
       return new SitekeyRateLimitedError(message, opts);
+    case "proxy_unavailable":
+      return new ProxyUnavailableError(message, opts);
     case "rate_limited":
     case "ext_daily_limit":
       return new RateLimitError(message, opts);

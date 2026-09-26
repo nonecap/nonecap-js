@@ -27,6 +27,7 @@ export {
   RateLimitError,
   ConcurrencyLimitError,
   SitekeyRateLimitedError,
+  ProxyUnavailableError,
   APIError,
   ServiceUnavailableError,
   ConnectionError,
