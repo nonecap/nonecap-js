@@ -53,12 +53,13 @@ interface SolveCreateBase {
 /**
  * Parameters for {@link NoneCap.solves.create} and {@link NoneCap.solve}.
  *
- * Modeled as a discriminated union on `type`: `rqdata` is optional for
- * `hcaptcha` but required for `hcaptcha_enterprise`, enforced at compile time.
+ * `rqdata` is optional for both types: many enterprise sitekeys issue none.
+ * When the site does pass one to its widget, send it.
  */
-export type SolveCreateParams =
-  | (SolveCreateBase & { type: "hcaptcha"; rqdata?: string })
-  | (SolveCreateBase & { type: "hcaptcha_enterprise"; rqdata: string });
+export type SolveCreateParams = SolveCreateBase & {
+  type: "hcaptcha" | "hcaptcha_enterprise";
+  rqdata?: string;
+};
 
 /** Why a solve did not produce a token. `expired` and `cancelled` are statuses
  *  the API reports through the same object. */
