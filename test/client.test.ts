@@ -132,6 +132,19 @@ describe("solves.create", () => {
     expect(calls[0]!.url.searchParams.get("wait")).toBe("30");
   });
 
+  it("sends an enterprise solve without rqdata, and with it verbatim", async () => {
+    const { nc, calls } = client([
+      () => ({ status: 202, body: baseSolve() }),
+      () => ({ status: 202, body: baseSolve() }),
+    ]);
+    await nc.solves.create({ type: "hcaptcha_enterprise", sitekey: "sk", url: "https://e.com" });
+    await nc.solves.create({ type: "hcaptcha_enterprise", sitekey: "sk", url: "https://e.com", rqdata: "rq" });
+    const first = JSON.parse(calls[0]!.init.body as string);
+    expect(first).toMatchObject({ type: "hcaptcha_enterprise", sitekey: "sk" });
+    expect(first).not.toHaveProperty("rqdata");
+    expect(JSON.parse(calls[1]!.init.body as string).rqdata).toBe("rq");
+  });
+
   it("treats 202 as success, not an error", async () => {
     const { nc } = client([() => ({ status: 202, body: baseSolve({ status: "solving" }) })]);
     const solve = await nc.solves.create({ type: "hcaptcha", sitekey: "sk", url: "https://e.com" });

@@ -127,14 +127,14 @@ try {
 
 ## Enterprise captchas
 
-For `hcaptcha_enterprise`, `rqdata` is required. The types enforce it, so leaving it out is a compile error, not a runtime surprise.
+For `hcaptcha_enterprise`, `rqdata` is optional: many enterprise sites never issue one. When the page does pass an `rqdata` blob to its widget, send it, fresh for each challenge.
 
 ```ts
 const { token } = await nc.solve({
   type: "hcaptcha_enterprise",
   sitekey,
   url,
-  rqdata: "...", // required for enterprise
+  rqdata: "...", // only when the site provides one
 });
 ```
 
