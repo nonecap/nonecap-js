@@ -278,6 +278,8 @@ describe("error mapping", () => {
     { code: "capacity_exhausted", reason: "profile_engine_unavailable" satisfies SolveErrorReason, retryable: true },
     { code: "capacity_exhausted", reason: "browser_lane_capped" satisfies SolveErrorReason, retryable: true },
     { code: "internal_error", reason: "type_not_served" satisfies SolveErrorReason, retryable: false },
+    { code: "challenge_not_loaded", reason: "recaptcha_not_loaded" satisfies SolveErrorReason, retryable: false },
+    { code: "token_not_granted", reason: "refused_wording_unescaped" satisfies SolveErrorReason, retryable: true },
   ])("surfaces $reason under $code", async ({ code, reason, retryable }) => {
     const failed = baseSolve({
       status: "failed",
