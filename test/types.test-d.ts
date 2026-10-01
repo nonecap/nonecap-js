@@ -25,6 +25,8 @@ const reason2: SolveErrorReason = "target_egress_blocked";
 const reason3: SolveErrorReason = "profile_engine_unavailable";
 const reason4: SolveErrorReason = "type_not_served";
 const reason5: SolveErrorReason = "browser_lane_capped";
+const reason6: SolveErrorReason = "recaptcha_not_loaded";
+const reason7: SolveErrorReason = "refused_wording_unescaped";
 
 // @ts-expect-error a reason the API never defined must not compile.
 const badReason: SolveErrorReason = "proxy_egress_blockd";

@@ -102,7 +102,13 @@ export type SolveErrorReason =
   | "type_not_served"
   /** Tokens for this sitekey are being reported as rejected at a high rate, so fewer solves
    *  are run for it for a while; this one was not started. Retry after a short wait. */
-  | "browser_lane_capped";
+  | "browser_lane_capped"
+  /** reCAPTCHA did not initialise on the url for this sitekey: not a v3 key, or the hostname
+   *  is not on its allowed domains. */
+  | "recaptcha_not_loaded"
+  /** hCaptcha kept serving a challenge whose tokens the site does not accept, so the solve was
+   *  stopped before a token was issued. Not charged; retry. */
+  | "refused_wording_unescaped";
 
 /** The error attached to a solve that did not succeed. */
 export interface SolveError {
