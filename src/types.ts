@@ -306,6 +306,8 @@ export type ErrorCode =
   | "sitekey_rate_limited"
   /** Your own proxy is refusing connections; submits through it were shed. Honour `Retry-After`. */
   | "proxy_unavailable"
+  /** Your account reached its submit rate cap on this sitekey; nothing was charged. Honour `Retry-After`. */
+  | "rate_capped"
   /** The submitting API key hit its own spend cap. */
   | "key_credit_limit_exceeded"
   /** Feedback: the solve is missing, not yours, or never produced a token. */

@@ -80,6 +80,10 @@ export class SitekeyRateLimitedError extends RateLimitError {}
  *  switch exit; `retryAfter` says when the next submit is let through to re-check it. */
 export class ProxyUnavailableError extends RateLimitError {}
 
+/** 429 — your account has a submit rate cap on this sitekey and reached it for the
+ *  trailing minute. Nothing was charged; wait `retryAfter` seconds. */
+export class RateCappedError extends RateLimitError {}
+
 /** 5xx, or a response that wasn't the expected shape. `requestId` is the id to quote. */
 export class APIError extends NoneCapError {}
 
@@ -188,6 +192,8 @@ export function errorFromResponse(
       return new SitekeyRateLimitedError(message, opts);
     case "proxy_unavailable":
       return new ProxyUnavailableError(message, opts);
+    case "rate_capped":
+      return new RateCappedError(message, opts);
     case "rate_limited":
     case "ext_daily_limit":
       return new RateLimitError(message, opts);
