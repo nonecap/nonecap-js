@@ -108,7 +108,10 @@ export type SolveErrorReason =
   | "recaptcha_not_loaded"
   /** hCaptcha kept serving a challenge whose tokens the site does not accept, so the solve was
    *  stopped before a token was issued. Not charged; retry. */
-  | "refused_wording_unescaped";
+  | "refused_wording_unescaped"
+  /** NoneCap is pacing solves for this sitekey and no slot opened before the solve deadline,
+   *  so this one was not started. Not charged; retry after a short wait. */
+  | "session_capped";
 
 /** The error attached to a solve that did not succeed. */
 export interface SolveError {

@@ -27,6 +27,7 @@ const reason4: SolveErrorReason = "type_not_served";
 const reason5: SolveErrorReason = "browser_lane_capped";
 const reason6: SolveErrorReason = "recaptcha_not_loaded";
 const reason7: SolveErrorReason = "refused_wording_unescaped";
+const reason8: SolveErrorReason = "session_capped";
 
 // @ts-expect-error a reason the API never defined must not compile.
 const badReason: SolveErrorReason = "proxy_egress_blockd";
