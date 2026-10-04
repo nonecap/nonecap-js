@@ -9,6 +9,7 @@ import {
   ConcurrencyLimitError,
   SitekeyRateLimitedError,
   ProxyUnavailableError,
+  RateCappedError,
   KeyCreditLimitError,
   PayloadTooLargeError,
   UnsupportedMediaTypeError,
@@ -206,6 +207,8 @@ describe("error mapping", () => {
     [429, "sitekey_rate_limited", SitekeyRateLimitedError],
     [429, "proxy_unavailable", ProxyUnavailableError],
     [429, "proxy_unavailable", RateLimitError],
+    [429, "rate_capped", RateCappedError],
+    [429, "rate_capped", RateLimitError],
     [429, "rate_limited", RateLimitError],
     [409, "conflict", ConflictError],
     [404, "not_found", NotFoundError],
@@ -237,6 +240,19 @@ describe("error mapping", () => {
       });
     const nc = new NoneCap({ apiKey: "k", fetch });
     await expect(nc.me()).rejects.toMatchObject({ retryAfter: 15, requestId: "req_1", code: "sitekey_rate_limited" });
+  });
+
+  it("maps a 429 rate_capped to RateCappedError carrying the Retry-After delay", async () => {
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ error: { code: "rate_capped", message: "capped", param: null, request_id: "req_3" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "7" },
+      });
+    const nc = new NoneCap({ apiKey: "k", fetch });
+    const err = await nc.me().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RateCappedError);
+    expect(err).toBeInstanceOf(RateLimitError);
+    expect(err).toMatchObject({ retryAfter: 7, requestId: "req_3", code: "rate_capped", status: 429 });
   });
 
   it("falls back to the X-Request-Id header when the envelope carries no request_id", async () => {
