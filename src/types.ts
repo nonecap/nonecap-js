@@ -365,7 +365,7 @@ export interface RecognizeResult<D = unknown> {
   /** The recognition's id (`extsess_…`), for {@link NoneCap.reportRecognitionOutcome}. */
   id: string;
   data: D;
-  /** Credits charged for this call. */
+  /** Credits charged for this call. Final: reporting the outcome does not refund it. */
   credits_charged: number;
 }
 
@@ -394,8 +394,9 @@ export type RecognitionOutcome = "solved" | "failed";
 /** The result of {@link NoneCap.reportRecognitionOutcome}. */
 export interface RecognitionOutcomeResult {
   id: string;
-  /** The recorded outcome. The first report sticks: a repeat returns it with `refunded_credits: 0`. */
+  /** The recorded outcome. The first report sticks: a repeat returns it unchanged. */
   result: RecognitionOutcome;
+  /** Always 0: reporting an outcome never refunds the call. */
   refunded_credits: number;
 }
 
@@ -431,7 +432,7 @@ export type ErrorCode =
   | "key_credit_limit_exceeded"
   /** Feedback: the solve is missing, not yours, or never produced a token. */
   | "not_eligible"
-  /** Feedback or a recognition outcome: the report arrived after its window closed. */
+  /** Feedback: a first report arrived after the reporting window closed. */
   | "expired_window"
   /** 422: `/v1/recognize` produced no answer for the images; nothing was charged. */
   | "recognition_failed"

@@ -142,16 +142,16 @@ describe("recognize", () => {
 });
 
 describe("reportRecognitionOutcome", () => {
-  it("POSTs the id and result and returns the refund", async () => {
+  it("POSTs the id and result and returns the recorded outcome", async () => {
     const { nc, calls } = client([
-      () => ({ status: 200, body: { id: "extsess_1", result: "failed", refunded_credits: 10 } }),
+      () => ({ status: 200, body: { id: "extsess_1", result: "failed", refunded_credits: 0 } }),
     ]);
     const result = await nc.reportRecognitionOutcome("extsess_1", "failed");
 
     expect(calls[0]!.method).toBe("POST");
     expect(calls[0]!.url.pathname).toBe("/v1/recognize/outcome");
     expect(calls[0]!.body).toEqual({ id: "extsess_1", result: "failed" });
-    expect(result.refunded_credits).toBe(10);
+    expect(result).toEqual({ id: "extsess_1", result: "failed", refunded_credits: 0 });
   });
 
   it("throws NotFoundError for a recognition that is not yours", async () => {
@@ -159,10 +159,18 @@ describe("reportRecognitionOutcome", () => {
     await expect(nc.reportRecognitionOutcome("extsess_x", "solved")).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("throws ValidationError with expired_window after the window", async () => {
-    const { nc } = client([apiError(422, "expired_window", "the outcome window closed", "id")]);
-    const err = await nc.reportRecognitionOutcome("extsess_old", "failed").catch((e) => e);
+  it("returns the first result when the outcome was already reported", async () => {
+    const { nc } = client([
+      () => ({ status: 200, body: { id: "extsess_1", result: "solved", refunded_credits: 0 } }),
+    ]);
+    const result = await nc.reportRecognitionOutcome("extsess_1", "failed");
+    expect(result.result).toBe("solved");
+  });
+
+  it("throws ValidationError for a bad result", async () => {
+    const { nc } = client([apiError(422, "validation_error", "result must be 'solved' or 'failed'", "result")]);
+    const err = await nc.reportRecognitionOutcome("extsess_1", "solved").catch((e) => e);
     expect(err).toBeInstanceOf(ValidationError);
-    expect(err.code).toBe("expired_window");
+    expect(err.param).toBe("result");
   });
 });

@@ -222,13 +222,13 @@ const result = await nc.recognize({
 
 `image_label_binary` answers pages of 9 booleans (`boolean[][]`), `image_label_area_select` one box per task (`null` when there is no point) plus `points` per task, and `image_drag_drop` the drop box for each entity per task. The return type follows the request, so TypeScript knows which one you got.
 
-When no answer comes back the call throws `RecognitionFailedError` and nothing is charged. If an answer did not work on the challenge, report it within 15 minutes and the call is refunded in full:
+When no answer comes back the call throws `RecognitionFailedError` and nothing is charged. An answered call's charge is final. You can tell us whether the answer worked on the challenge, which helps us track accuracy; it is optional, free, and does not refund the call:
 
 ```ts
-const { refunded_credits } = await nc.reportRecognitionOutcome(id, "failed");
+await nc.reportRecognitionOutcome(id, solved ? "solved" : "failed");
 ```
 
-Reporting is optional and the first report for an id sticks. Calls are capped per API key by your account's concurrency limit, so a burst over it gets `ConcurrencyLimitError` or `RateLimitError` with `retryAfter` set.
+The first report for an id sticks; a repeat returns it unchanged. Calls are capped per API key by your account's concurrency limit, so a burst over it gets `ConcurrencyLimitError` or `RateLimitError` with `retryAfter` set.
 
 ## Lower-level API
 

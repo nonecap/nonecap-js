@@ -307,8 +307,9 @@ export class NoneCap {
    * Recognize a challenge's images: send the instruction and images, get the
    * answer back in the same response. No token, no polling.
    *
-   * Throws {@link RecognitionFailedError} when no answer came back (nothing is
-   * charged then), {@link ValidationError} for a malformed request.
+   * An answered call's charge is final. Throws {@link RecognitionFailedError}
+   * when no answer came back (nothing is charged then), {@link ValidationError}
+   * for a malformed request.
    *
    * ```ts
    * const { id, data } = await nc.recognize({
@@ -341,10 +342,9 @@ export class NoneCap {
   }
 
   /**
-   * Report whether a {@link NoneCap.recognize} answer worked. Optional: `failed`
-   * refunds that call in full. Report within 15 minutes of the call; after that
-   * the API answers {@link ValidationError} with code `expired_window`. The
-   * first report sticks.
+   * Report whether a {@link NoneCap.recognize} answer worked on the challenge.
+   * Optional and free; it feeds NoneCap's accuracy stats and never refunds the
+   * call. The first report for an id sticks: a repeat returns it unchanged.
    */
   reportRecognitionOutcome(
     id: string,
