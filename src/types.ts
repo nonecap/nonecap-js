@@ -280,6 +280,126 @@ export interface FeedbackBatch {
   results: FeedbackResult[];
 }
 
+/** An image, as bare base64 or a `data:` URI (PNG, JPEG, WebP or GIF, up to 1.5 MiB). */
+export type RecognizeImage = string;
+
+/** Send the images inline (`image_data`) or as hCaptcha image URLs the API fetches (`image_urls`), never both. */
+export type RecognizeImages =
+  | { image_data: RecognizeImage[]; image_urls?: never }
+  | { image_urls: string[]; image_data?: never };
+
+interface RecognizeSimpleBase {
+  /** The challenge's instruction, e.g. `"Please click each image containing a bus"`. */
+  task: string;
+  /** The challenge's example images, when it shows any. */
+  image_examples?: RecognizeImage[];
+  /** The site's bare domain (`example.com`), when you know it. */
+  host?: string;
+}
+
+/** A grid challenge: 1–27 tiles, answered with one boolean per tile. */
+export type RecognizeBinaryParams = RecognizeSimpleBase & RecognizeImages & { type: "hcaptcha" };
+
+/** A click-the-point challenge: exactly one image. */
+export type RecognizeAreaSelectParams = RecognizeSimpleBase & RecognizeImages & {
+  type: "hcaptcha_area_select";
+};
+
+/** The `request_type` of a full hCaptcha tasklist. */
+export type RecognizeRequestType = "image_label_binary" | "image_label_area_select" | "image_drag_drop";
+
+/** A draggable piece of an `image_drag_drop` task. */
+export interface RecognizeEntity {
+  entity_id: string;
+  /** The piece's image, as base64 or an hCaptcha image URL. */
+  entity_uri?: string;
+  coords: [number, number];
+  size: [number, number];
+}
+
+/** One task of a tasklist. */
+export interface RecognizeTask {
+  task_key: string;
+  /** The task's image, as base64 or an hCaptcha image URL. */
+  datapoint_uri: string;
+  entities?: RecognizeEntity[];
+}
+
+/** The challenge as hCaptcha served it (NopeCHA's v1 recognition body). */
+export interface RecognizeTasklistParams<R extends RecognizeRequestType = RecognizeRequestType> {
+  data: {
+    request_type: R;
+    requester_question: { en: string };
+    requester_question_example?: string[];
+    request_config?: Record<string, unknown>;
+    tasklist: RecognizeTask[];
+  };
+  /** The site's bare domain (`example.com`), when you know it. */
+  host?: string;
+}
+
+/** Parameters for {@link NoneCap.recognize}. */
+export type RecognizeParams = RecognizeBinaryParams | RecognizeAreaSelectParams | RecognizeTasklistParams;
+
+/** A point, in percent of the image's width and height. */
+export interface RecognizePoint {
+  x: number;
+  y: number;
+}
+
+/** A box, in percent of the image. Area-select answers are a point: `w` and `h` are 0. */
+export interface RecognizeBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Where to drop one entity: a box centred on the drop point, sized by the entity's `size`. */
+export interface RecognizeDrop extends RecognizeBox {
+  entity_id: string;
+}
+
+/** The answer to a {@link NoneCap.recognize} call. `data` takes the shape of the request. */
+export interface RecognizeResult<D = unknown> {
+  /** The recognition's id (`extsess_…`), for {@link NoneCap.reportRecognitionOutcome}. */
+  id: string;
+  data: D;
+  /** Credits charged for this call. Final: reporting the outcome does not refund it. */
+  credits_charged: number;
+}
+
+/** `type: "hcaptcha"`: one boolean per tile, in request order. */
+export type RecognizeBinaryResult = RecognizeResult<boolean[]>;
+
+/** `type: "hcaptcha_area_select"`: the first point to click, plus every point for multi-click wordings. */
+export interface RecognizeAreaSelectResult extends RecognizeResult<RecognizeBox> {
+  points: RecognizePoint[];
+}
+
+/** `image_label_binary`: pages of 9 booleans, one per task. */
+export type RecognizeTasklistBinaryResult = RecognizeResult<boolean[][]>;
+
+/** `image_label_area_select`: per task, the first point (null when none) and every point. */
+export interface RecognizeTasklistAreaSelectResult extends RecognizeResult<(RecognizeBox | null)[]> {
+  points: RecognizePoint[][];
+}
+
+/** `image_drag_drop`: per task, where to drop each entity. */
+export type RecognizeTasklistDragDropResult = RecognizeResult<RecognizeDrop[][]>;
+
+/** Whether the answer worked on the challenge. */
+export type RecognitionOutcome = "solved" | "failed";
+
+/** The result of {@link NoneCap.reportRecognitionOutcome}. */
+export interface RecognitionOutcomeResult {
+  id: string;
+  /** The recorded outcome. The first report sticks: a repeat returns it unchanged. */
+  result: RecognitionOutcome;
+  /** Always 0: reporting an outcome never refunds the call. */
+  refunded_credits: number;
+}
+
 /** Your account, including the current credit balance. */
 export interface Account {
   object: "account";
@@ -314,6 +434,8 @@ export type ErrorCode =
   | "not_eligible"
   /** Feedback: a first report arrived after the reporting window closed. */
   | "expired_window"
+  /** 422: `/v1/recognize` produced no answer for the images; nothing was charged. */
+  | "recognition_failed"
   /** 503: new solves are paused for maintenance. Retry shortly. */
   | "maintenance"
   /** 413: the request body exceeds the route's size limit. */

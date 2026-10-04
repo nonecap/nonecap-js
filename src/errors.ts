@@ -84,6 +84,10 @@ export class ProxyUnavailableError extends RateLimitError {}
  *  trailing minute. Nothing was charged; wait `retryAfter` seconds. */
 export class RateCappedError extends RateLimitError {}
 
+/** 422 — {@link NoneCap.recognize} produced no answer for these images, or the challenge
+ *  type is not supported. Nothing was charged. */
+export class RecognitionFailedError extends NoneCapError {}
+
 /** 5xx, or a response that wasn't the expected shape. `requestId` is the id to quote. */
 export class APIError extends NoneCapError {}
 
@@ -197,6 +201,8 @@ export function errorFromResponse(
     case "rate_limited":
     case "ext_daily_limit":
       return new RateLimitError(message, opts);
+    case "recognition_failed":
+      return new RecognitionFailedError(message, opts);
     case "maintenance":
       return new ServiceUnavailableError(message, opts);
     default:
