@@ -70,7 +70,7 @@ try {
 }
 ```
 
-The error subclasses are `AuthenticationError` (401), `PermissionError` (403), `InsufficientCreditsError` (402, with `KeyCreditLimitError` when one API key hit its own cap), `ValidationError` (422/400, with a `param` naming the bad field; `PayloadTooLargeError` for 413 and `UnsupportedMediaTypeError` for 415), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429, with `ConcurrencyLimitError`, `SitekeyRateLimitedError`, `ProxyUnavailableError` (your own proxy is refusing connections) and `RateCappedError` (your account reached its submit rate cap on this sitekey) telling them apart; `retryAfter` is the seconds the API asked you to wait), `APIError` (5xx, with `ServiceUnavailableError` for a maintenance pause), and `ConnectionError` (the request never landed). Every error from a response carries `requestId`, the id to quote to support.
+The error subclasses are `AuthenticationError` (401), `PermissionError` (403), `InsufficientCreditsError` (402, with `KeyCreditLimitError` when one API key hit its own cap), `ValidationError` (422/400, with a `param` naming the bad field; `PayloadTooLargeError` for 413 and `UnsupportedMediaTypeError` for 415), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429, with `ConcurrencyLimitError`, `SitekeyRateLimitedError`, `ProxyUnavailableError` (your own proxy is refusing connections) and `RateCappedError` (your account reached its submit rate cap on this sitekey) telling them apart; `retryAfter` is the seconds the API asked you to wait), `RecognitionFailedError` (422 from `recognize()` when no answer came back, nothing charged), `APIError` (5xx, with `ServiceUnavailableError` for a maintenance pause), and `ConnectionError` (the request never landed). Every error from a response carries `requestId`, the id to quote to support.
 
 `SolveFailedError` carries the full `solve`. `solve.error.code` is a `SolveErrorCode`, `solve.error.reason` a typed sub-reason or `null` (`proxy_rejected`, `sitekey_rate_limited`, …), and `solve.error.retryable` says whether resubmitting the same request unchanged can succeed; `err.retryable`, `err.reason` and `err.solveCode` are shortcuts to those fields. Failed solves are never charged.
 
@@ -192,6 +192,43 @@ if (batch.failed > 0) {
 `reason` and `context` are both optional free text. `reason` is the code or message your target gave you; `context` is anything else about the attempt you think would help us diagnose it, with no schema at all. Neither is parsed — they are what a human reads when you raise a ticket, and they carry the half of a rejection we cannot see from our side.
 
 Reporting the same solve again corrects the earlier verdict, so retries and late fixes are safe. You can report any of your own solved solves within ~30 days of the solve; corrections to something you already reported are never cut off by that window.
+
+## Recognizing images
+
+If you run your own browser and only need the answer to a challenge, send the instruction and images to `recognize()`. The answer comes back in the same response: no token, no polling.
+
+```ts
+const { id, data } = await nc.recognize({
+  type: "hcaptcha",
+  task: "Please click each image containing a bus",
+  image_data: tiles, // base64 or data: URIs, 1-27 tiles; or image_urls with hCaptcha image URLs
+});
+// data: boolean[], one per tile, in the order you sent them
+```
+
+For a click-the-point challenge send exactly one image with `type: "hcaptcha_area_select"`. `data` is the first point as `{ x, y, w: 0, h: 0 }` and `points` lists every point to click, all in percent of the image.
+
+You can also send the challenge as hCaptcha served it, in NopeCHA's v1 recognition shape:
+
+```ts
+const result = await nc.recognize({
+  data: {
+    request_type: "image_drag_drop", // or image_label_binary, image_label_area_select
+    requester_question: { en: "Drag the piece into place" },
+    tasklist: [{ task_key, datapoint_uri, entities }],
+  },
+});
+```
+
+`image_label_binary` answers pages of 9 booleans (`boolean[][]`), `image_label_area_select` one box per task (`null` when there is no point) plus `points` per task, and `image_drag_drop` the drop box for each entity per task. The return type follows the request, so TypeScript knows which one you got.
+
+When no answer comes back the call throws `RecognitionFailedError` and nothing is charged. If an answer did not work on the challenge, report it within 15 minutes and the call is refunded in full:
+
+```ts
+const { refunded_credits } = await nc.reportRecognitionOutcome(id, "failed");
+```
+
+Reporting is optional and the first report for an id sticks. Calls are capped per API key by your account's concurrency limit, so a burst over it gets `ConcurrencyLimitError` or `RateLimitError` with `retryAfter` set.
 
 ## Lower-level API
 
