@@ -81,7 +81,8 @@ export class SitekeyRateLimitedError extends RateLimitError {}
 export class ProxyUnavailableError extends RateLimitError {}
 
 /** 429 — your account has a submit rate cap on this sitekey and reached it for the
- *  trailing minute. Nothing was charged; wait `retryAfter` seconds. */
+ *  trailing minute, or your own-proxy sessions for this sitekey are at their limit.
+ *  Nothing was charged; wait `retryAfter` seconds. */
 export class RateCappedError extends RateLimitError {}
 
 /** 5xx, or a response that wasn't the expected shape. `requestId` is the id to quote. */
