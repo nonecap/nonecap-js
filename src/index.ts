@@ -41,6 +41,7 @@ export type {
   SolveStatus,
   Solve,
   SolveError,
+  SolveWarning,
   SolveErrorCode,
   SolveErrorReason,
   SolveCreateParams,

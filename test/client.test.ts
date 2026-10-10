@@ -116,6 +116,15 @@ describe("solve user_agent", () => {
   });
 });
 
+describe("solve warnings", () => {
+  it("returns a proxy_session_refused warning as the API sent it", async () => {
+    const warning = { code: "proxy_session_refused", message: "Switch to a new proxy session." };
+    const { nc } = client([() => ({ status: 202, body: baseSolve({ warnings: [warning] }) })]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.warnings).toEqual([warning]);
+  });
+});
+
 describe("solves.create", () => {
   it("POSTs to /v1/solves with bearer auth and a JSON body", async () => {
     const { nc, calls } = client([() => ({ status: 202, body: baseSolve() })]);

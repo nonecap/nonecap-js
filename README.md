@@ -36,6 +36,7 @@ const solve = await nc.solve({
 console.log(solve.token); // the hCaptcha token, ready to submit
 console.log(solve.resp_key); // hcaptcha.getRespKey() equivalent, for sites that verify the pair
 console.log(solve.user_agent); // submit the token with this User-Agent: some sites check the browser version
+console.log(solve.warnings); // e.g. proxy_session_refused: tokens you reported from this proxy session were refused; a new one is more likely to pass
 ```
 
 `solve()` submits the captcha and waits until it is done, using the API's long-poll so you are not hammering it with requests. It returns the solved solve, or throws if the solve fails or your timeout runs out.

@@ -127,6 +127,13 @@ export interface SolveError {
   docs_url: string;
 }
 
+/** One advisory on a solve. */
+export interface SolveWarning {
+  code: "proxy_session_refused" | (string & {});
+  /** What happened and what to do. */
+  message: string;
+}
+
 /** A solve resource. */
 export interface Solve {
   id: string;
@@ -163,6 +170,14 @@ export interface Solve {
   queue_ms: number | null;
   /** Milliseconds of actual solving. */
   resolve_ms: number | null;
+  /**
+   * Advisories about this solve; empty when there is none. `proxy_session_refused`:
+   * the last token(s) you reported from this solve's `proxy` session were rejected
+   * (`feedback.report`). A new proxy session is more likely to pass, so switch to one
+   * for your next solves. The solve still runs.
+   * Absent on responses from API versions before the field.
+   */
+  warnings?: SolveWarning[];
 }
 
 /** Parameters for {@link NoneCap.solves.list}. */
