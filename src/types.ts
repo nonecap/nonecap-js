@@ -35,13 +35,9 @@ interface SolveCreateBase {
   /** The page URL the captcha is served on. */
   url: string;
   /**
-   * User agent to present to the captcha.
-   *
-   * @deprecated Since 2026-08-13 this is accepted but ignored — it no longer reaches the
-   * wire. Every solve presents its own coherent browser identity (user agent, client hints,
-   * language header and proof-of-work all describing one machine); a caller-supplied string
-   * replaced only some of those and made the request contradict itself. Safe to remove.
-   * To submit the token as the browser that earned it, read the solve's `user_agent`.
+   * Optional. Send the user agent of the browser that loaded the page, as is.
+   * On most sites it changes nothing; on some it is required for the token to be accepted.
+   * If you do not have it, leave the field out.
    */
   user_agent?: string;
   /** Proxy to route the solve through, as a structured object or a URL string. */
