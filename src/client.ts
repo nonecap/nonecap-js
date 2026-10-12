@@ -13,6 +13,18 @@ import type {
   Feedback,
   FeedbackBatch,
   FeedbackReport,
+  RecognitionOutcome,
+  RecognitionOutcomeResult,
+  RecognizeAreaSelectParams,
+  RecognizeAreaSelectResult,
+  RecognizeBinaryParams,
+  RecognizeBinaryResult,
+  RecognizeParams,
+  RecognizeResult,
+  RecognizeTasklistAreaSelectResult,
+  RecognizeTasklistBinaryResult,
+  RecognizeTasklistDragDropResult,
+  RecognizeTasklistParams,
   Solve,
   SolveCreateParams,
   SolveList,
@@ -289,6 +301,60 @@ export class NoneCap {
   /** Fetch your account, including the current credit balance. */
   me(options: { signal?: AbortSignal } = {}): Promise<Account> {
     return this.#request<Account>("GET", "/v1/me", { signal: options.signal });
+  }
+
+  /**
+   * Recognize a challenge's images: send the instruction and images, get the
+   * answer back in the same response. No token, no polling.
+   *
+   * An answered call's charge is final. Throws {@link RecognitionFailedError}
+   * when no answer came back (nothing is charged then), {@link ValidationError}
+   * for a malformed request.
+   *
+   * ```ts
+   * const { id, data } = await nc.recognize({
+   *   type: "hcaptcha",
+   *   task: "Please click each image containing a bus",
+   *   image_data: tiles, // base64
+   * });
+   * ```
+   */
+  recognize(params: RecognizeBinaryParams, options?: { signal?: AbortSignal }): Promise<RecognizeBinaryResult>;
+  recognize(params: RecognizeAreaSelectParams, options?: { signal?: AbortSignal }): Promise<RecognizeAreaSelectResult>;
+  recognize(
+    params: RecognizeTasklistParams<"image_label_binary">,
+    options?: { signal?: AbortSignal },
+  ): Promise<RecognizeTasklistBinaryResult>;
+  recognize(
+    params: RecognizeTasklistParams<"image_label_area_select">,
+    options?: { signal?: AbortSignal },
+  ): Promise<RecognizeTasklistAreaSelectResult>;
+  recognize(
+    params: RecognizeTasklistParams<"image_drag_drop">,
+    options?: { signal?: AbortSignal },
+  ): Promise<RecognizeTasklistDragDropResult>;
+  recognize(params: RecognizeParams, options?: { signal?: AbortSignal }): Promise<RecognizeResult>;
+  recognize(params: RecognizeParams, options: { signal?: AbortSignal } = {}): Promise<RecognizeResult> {
+    return this.#request<RecognizeResult>("POST", "/v1/recognize", {
+      body: params,
+      signal: options.signal,
+    });
+  }
+
+  /**
+   * Report whether a {@link NoneCap.recognize} answer worked on the challenge.
+   * Optional and free; it feeds NoneCap's accuracy stats and never refunds the
+   * call. The first report for an id sticks: a repeat returns it unchanged.
+   */
+  reportRecognitionOutcome(
+    id: string,
+    result: RecognitionOutcome,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<RecognitionOutcomeResult> {
+    return this.#request<RecognitionOutcomeResult>("POST", "/v1/recognize/outcome", {
+      body: { id, result },
+      signal: options.signal,
+    });
   }
 
   /**
