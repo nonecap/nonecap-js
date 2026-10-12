@@ -37,7 +37,7 @@ describe("recognize", () => {
     const { nc, calls } = client([
       () => ({
         status: 200,
-        body: { id: "extsess_1", data: [true, false, true], credits_charged: 10 },
+        body: { id: "extsess_1", data: [true, false, true], credits_charged: 5 },
       }),
     ]);
     const result = await nc.recognize({
@@ -55,7 +55,7 @@ describe("recognize", () => {
       image_data: ["aGVsbG8=", "aGVsbG8=", "data:image/png;base64,aGVsbG8="],
       host: "example.com",
     });
-    expect(result).toEqual({ id: "extsess_1", data: [true, false, true], credits_charged: 10 });
+    expect(result).toEqual({ id: "extsess_1", data: [true, false, true], credits_charged: 5 });
   });
 
   it("returns the area-select point and every point", async () => {
@@ -66,7 +66,7 @@ describe("recognize", () => {
           id: "extsess_2",
           data: { x: 41.5, y: 62, w: 0, h: 0 },
           points: [{ x: 41.5, y: 62 }, { x: 10, y: 20 }],
-          credits_charged: 10,
+          credits_charged: 5,
         },
       }),
     ]);
@@ -96,7 +96,7 @@ describe("recognize", () => {
     const { nc, calls } = client([
       () => ({
         status: 200,
-        body: { id: "extsess_3", data: [[{ entity_id: "e1", x: 50, y: 40, w: 10, h: 10 }]], credits_charged: 10 },
+        body: { id: "extsess_3", data: [[{ entity_id: "e1", x: 50, y: 40, w: 10, h: 10 }]], credits_charged: 5 },
       }),
     ]);
     const result = await nc.recognize({ data });
