@@ -420,7 +420,7 @@ export interface AccountPlan {
   used_today: number;
   /** `daily_solves - used_today`, never below 0. */
   remaining_today: number;
-  /** The next reset, always 00:00 UTC (08:00 in Beijing), as RFC 3339. */
+  /** The next reset, always 00:00 UTC, as RFC 3339. */
   resets_at: string;
 }
 
