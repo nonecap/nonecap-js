@@ -259,6 +259,8 @@ for await (const s of nc.solves.listAll()) {
 // Your account and credit balance
 const me = await nc.me();
 console.log(me.credits_balance);
+// With a plan: what is left of today's solves, and when they reset (00:00 UTC).
+console.log(me.plan?.remaining_today, me.plan?.resets_at);
 ```
 
 ## Cancelling and timeouts

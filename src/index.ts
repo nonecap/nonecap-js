@@ -50,6 +50,7 @@ export type {
   SolveList,
   Proxy,
   Account,
+  AccountPlan,
   FeedbackOutcome,
   FeedbackReport,
   Feedback,
