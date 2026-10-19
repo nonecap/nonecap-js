@@ -411,6 +411,19 @@ export interface RecognitionOutcomeResult {
   refunded_credits: number;
 }
 
+/** Your plan's day: what is left of today's solves and when they reset. */
+export interface AccountPlan {
+  id: string;
+  name: string;
+  /** The day's allowance of solves. */
+  daily_solves: number;
+  used_today: number;
+  /** `daily_solves - used_today`, never below 0. */
+  remaining_today: number;
+  /** The next reset, always 00:00 UTC (08:00 in Beijing), as RFC 3339. */
+  resets_at: string;
+}
+
 /** Your account, including the current credit balance. */
 export interface Account {
   object: "account";
@@ -418,6 +431,8 @@ export interface Account {
   email: string;
   credits_balance: number;
   created_at: string;
+  /** Your plan's day, or null without a plan. Absent from an API older than this SDK. */
+  plan?: AccountPlan | null;
 }
 
 /** Error codes returned in the API's error envelope. */

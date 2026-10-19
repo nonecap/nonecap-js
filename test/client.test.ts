@@ -195,6 +195,16 @@ describe("me", () => {
     expect(me.credits_balance).toBe(42);
     expect(calls[0]!.url.pathname).toBe("/v1/me");
   });
+
+  it("returns the plan's day, or null without a plan", async () => {
+    const plan = { id: "basic", name: "Basic", daily_solves: 1600, used_today: 412, remaining_today: 1188, resets_at: "2026-10-20T00:00:00.000Z" };
+    const base = { object: "account", id: "u_1", email: "a@b.com", credits_balance: 42, created_at: "x" };
+    const { nc } = client([() => ({ status: 200, body: { ...base, plan } }), () => ({ status: 200, body: { ...base, plan: null } })]);
+    const withPlan = await nc.me();
+    expect(withPlan.plan?.remaining_today).toBe(1188);
+    expect(withPlan.plan?.resets_at).toBe("2026-10-20T00:00:00.000Z");
+    expect((await nc.me()).plan).toBeNull();
+  });
 });
 
 describe("error mapping", () => {
