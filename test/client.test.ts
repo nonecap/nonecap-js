@@ -123,6 +123,13 @@ describe("solve warnings", () => {
     const solve = await nc.solves.retrieve("solve_1");
     expect(solve.warnings).toEqual([warning]);
   });
+
+  it("returns a proxy_recommended warning as the API sent it", async () => {
+    const warning = { code: "proxy_recommended", message: "Send your proxy in the proxy field." } as const;
+    const { nc } = client([() => ({ status: 200, body: baseSolve({ warnings: [warning] }) })]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.warnings?.map((w) => w.code)).toEqual(["proxy_recommended"]);
+  });
 });
 
 describe("solves.create", () => {
