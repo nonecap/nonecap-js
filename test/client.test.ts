@@ -118,7 +118,7 @@ describe("solve user_agent", () => {
 
 describe("solve warnings", () => {
   it("returns a proxy_session_refused warning as the API sent it", async () => {
-    const warning = { code: "proxy_session_refused", message: "Switch to a new proxy session." };
+    const warning = { code: "proxy_session_refused", message: "A different exit IP is more likely to pass, so switch to one for your next solves." };
     const { nc } = client([() => ({ status: 202, body: baseSolve({ warnings: [warning] }) })]);
     const solve = await nc.solves.retrieve("solve_1");
     expect(solve.warnings).toEqual([warning]);

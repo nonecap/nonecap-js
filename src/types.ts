@@ -168,9 +168,9 @@ export interface Solve {
   resolve_ms: number | null;
   /**
    * Advisories about this solve; empty when there is none. `proxy_session_refused`:
-   * the last token(s) you reported from this solve's `proxy` session were rejected
-   * (`feedback.report`). A new proxy session is more likely to pass, so switch to one
-   * for your next solves. `proxy_recommended`: this page is much more likely to accept a
+   * the last token(s) you reported through this solve's `proxy` session or its exit IP
+   * were rejected (`feedback.report`). A different exit IP is more likely to pass, so
+   * switch to one for your next solves. `proxy_recommended`: this page is much more likely to accept a
    * token solved through the same connection you submit it from, and this solve did not run
    * through yours; send your proxy in `proxy`, and make sure it works. The solve still runs.
    * Absent on responses from API versions before the field.
