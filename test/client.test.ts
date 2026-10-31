@@ -124,6 +124,13 @@ describe("solve warnings", () => {
     expect(solve.warnings).toEqual([warning]);
   });
 
+  it("returns the sticky-session proxy_session_refused variant as the API sent it", async () => {
+    const warning = { code: "proxy_session_refused", message: "Your proxy changed its exit IP during this solve. Use a sticky session per solve, and submit the token through that same session." } as const;
+    const { nc } = client([() => ({ status: 200, body: baseSolve({ warnings: [warning] }) })]);
+    const solve = await nc.solves.retrieve("solve_1");
+    expect(solve.warnings).toEqual([warning]);
+  });
+
   it("returns a proxy_recommended warning as the API sent it", async () => {
     const warning = { code: "proxy_recommended", message: "Send your proxy in the proxy field." } as const;
     const { nc } = client([() => ({ status: 200, body: baseSolve({ warnings: [warning] }) })]);
