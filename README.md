@@ -41,6 +41,43 @@ console.log(solve.warnings); // e.g. proxy_session_refused: tokens you reported 
 
 `solve()` submits the captcha and waits until it is done, using the API's long-poll so you are not hammering it with requests. It returns the solved solve, or throws if the solve fails or your timeout runs out.
 
+## MCP server (Claude Code, Cursor, and other MCP clients)
+
+The package also ships `nonecap-mcp`, a stdio [MCP](https://modelcontextprotocol.io) server, so an AI agent can solve hCaptcha through your NoneCap account.
+
+Claude Code:
+
+```sh
+claude mcp add nonecap --env NONECAP_API_KEY=<your key> -- npx -y -p nonecap@latest nonecap-mcp
+```
+
+Cursor (`~/.cursor/mcp.json`), Claude Desktop (`claude_desktop_config.json`), and most other clients take the same JSON:
+
+```json
+{
+  "mcpServers": {
+    "nonecap": {
+      "command": "npx",
+      "args": ["-y", "-p", "nonecap@latest", "nonecap-mcp"],
+      "env": { "NONECAP_API_KEY": "<your key>" }
+    }
+  }
+}
+```
+
+Tools:
+
+| Tool | What it does |
+| --- | --- |
+| `solve_hcaptcha` | Solve an hCaptcha (`sitekey`, `url`; optional `type`, `rqdata`, `user_agent`, `proxy`, `wait_seconds`) and return the solve with its `token`. If the solve is still running after `wait_seconds` (default 45, at most 50, inside the 60 s that clients built on the official MCP SDK allow by default), it returns the solve id and status so the agent polls `get_solve` instead of solving again. |
+| `get_solve` | Get a solve by id, optionally waiting up to 50 seconds for it to finish. |
+| `cancel_solve` | Cancel a pending or running solve. |
+| `list_solves` | List your recent solves. |
+| `get_account` | Your credit balance and your plan's solves left today. |
+| `report_solve_outcome` | Tell NoneCap whether the site accepted a token. |
+
+A failed call comes back as a tool error whose JSON carries the API's error code (`insufficient_credits`, `sitekey_rate_limited`, a failed solve's `proxy_error`, …), plus `retry_after` when the API sent one. Set `NONECAP_BASE_URL` to point the server at a different API host.
+
 ## Handling failures
 
 Every error this library throws extends `NoneCapError`, so you can catch the whole family or pick out the one you care about.

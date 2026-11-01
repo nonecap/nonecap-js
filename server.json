@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nonecap/nonecap",
+  "title": "NoneCap",
+  "description": "Solve hCaptcha and hCaptcha Enterprise challenges and get back a token, via the NoneCap API.",
+  "websiteUrl": "https://nonecap.com/",
+  "repository": {
+    "url": "https://github.com/nonecap/nonecap-js",
+    "source": "github"
+  },
+  "version": "0.13.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "nonecap",
+      "version": "0.13.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NONECAP_API_KEY",
+          "description": "Your NoneCap API key, from https://dashboard.nonecap.com",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

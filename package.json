@@ -1,7 +1,8 @@
 {
   "name": "nonecap",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "Official TypeScript client for NoneCap, the hCaptcha solver API.",
+  "mcpName": "io.github.nonecap/nonecap",
   "type": "module",
   "license": "MIT",
   "author": "Lunium",
@@ -21,11 +22,17 @@
     "hcaptcha-solver",
     "api-client",
     "sdk",
-    "typescript"
+    "typescript",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "nonecap-mcp": "./dist/mcp.cjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -36,6 +43,7 @@
   },
   "files": [
     "dist",
+    "server.json",
     "README.md",
     "LICENSE"
   ],
@@ -51,9 +59,11 @@
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "zod": "^4.6.7"
   },
   "publishConfig": {
     "access": "public"
