@@ -78,6 +78,8 @@ Tools:
 
 A failed call comes back as a tool error whose JSON carries the API's error code (`insufficient_credits`, `sitekey_rate_limited`, a failed solve's `proxy_error`, …), plus `retry_after` when the API sent one. Set `NONECAP_BASE_URL` to point the server at a different API host.
 
+There is also an [Agent Skill](skills/nonecap-hcaptcha/SKILL.md) that tells Claude Code, Codex and other SKILL.md clients when to reach for NoneCap and how to submit the token: copy `skills/nonecap-hcaptcha` into `~/.claude/skills/` (or your agent's skills folder).
+
 ## Handling failures
 
 Every error this library throws extends `NoneCapError`, so you can catch the whole family or pick out the one you care about.
