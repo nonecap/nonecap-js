@@ -469,6 +469,8 @@ export type ErrorCode =
   | "recognition_failed"
   /** 503: new solves are paused for maintenance. Retry shortly. */
   | "maintenance"
+  /** 503: solving for this sitekey is currently in maintenance. Honour `Retry-After`. */
+  | "sitekey_unavailable"
   /** 413: the request body exceeds the route's size limit. */
   | "payload_too_large"
   /** 415: a JSON route was called without `Content-Type: application/json`. */

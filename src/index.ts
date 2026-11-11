@@ -32,6 +32,7 @@ export {
   RecognitionFailedError,
   APIError,
   ServiceUnavailableError,
+  SitekeyUnavailableError,
   ConnectionError,
   SolveFailedError,
   TimeoutError,

@@ -1,6 +1,6 @@
 {
   "name": "nonecap",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Official TypeScript client for NoneCap, the hCaptcha solver API.",
   "mcpName": "io.github.nonecap/nonecap",
   "type": "module",

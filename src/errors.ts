@@ -95,6 +95,9 @@ export class APIError extends NoneCapError {}
 /** 503 — new solves are paused for maintenance. Retry shortly. */
 export class ServiceUnavailableError extends APIError {}
 
+/** 503 — solving for this sitekey is currently in maintenance. Retry after `retryAfter` seconds. */
+export class SitekeyUnavailableError extends ServiceUnavailableError {}
+
 /** The request never reached the API (DNS, TCP, TLS, timeout, offline). */
 export class ConnectionError extends NoneCapError {}
 
@@ -206,6 +209,8 @@ export function errorFromResponse(
       return new RecognitionFailedError(message, opts);
     case "maintenance":
       return new ServiceUnavailableError(message, opts);
+    case "sitekey_unavailable":
+      return new SitekeyUnavailableError(message, opts);
     default:
       return new APIError(message, opts);
   }
