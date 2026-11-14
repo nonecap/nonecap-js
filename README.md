@@ -180,7 +180,7 @@ const { token } = await nc.solve({
 
 ## Proxies
 
-Pass a proxy as a structured object or a URL string. Solves run through it, and the bytes are metered back on the solve.
+Pass a proxy as a structured object or a URL string. Solves run through it, and the bytes are metered back on the solve. For HTTP/3 through your own proxy, see [HTTP/3 on your own proxy](https://nonecap.com/api-reference#http3-own-proxy).
 
 ```ts
 await nc.solve({
